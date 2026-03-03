@@ -146,8 +146,12 @@ func (s *Service) Preview(ctx context.Context, radarrURL, apiKey string) (*Previ
 	}
 
 	result := &PreviewResult{
-		Version:    status.Version,
-		MovieCount: len(movies),
+		Version:         status.Version,
+		MovieCount:      len(movies),
+		QualityProfiles: []ProfilePreview{},
+		RootFolders:     []FolderPreview{},
+		Indexers:        []IndexerPreview{},
+		DownloadClients: []ClientPreview{},
 	}
 
 	for _, p := range profiles {
