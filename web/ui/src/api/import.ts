@@ -2,6 +2,22 @@ import { useMutation } from "@tanstack/react-query";
 import { apiFetch } from "./client";
 import type { RadarrPreviewResult, RadarrImportOptions, RadarrImportResult } from "@/types";
 
+// Go nil slices serialize to JSON null, not []. Normalize here so the UI
+// never has to guard against null arrays.
+function normalizePreview(d: RadarrPreviewResult): RadarrPreviewResult {
+  return {
+    ...d,
+    quality_profiles: d.quality_profiles ?? [],
+    root_folders: d.root_folders ?? [],
+    indexers: d.indexers ?? [],
+    download_clients: d.download_clients ?? [],
+  };
+}
+
+function normalizeImportResult(d: RadarrImportResult): RadarrImportResult {
+  return { ...d, errors: d.errors ?? [] };
+}
+
 export function useRadarrPreview() {
   return useMutation({
     mutationFn: (req: { url: string; api_key: string }) =>
@@ -9,7 +25,7 @@ export function useRadarrPreview() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(req),
-      }),
+      }).then(normalizePreview),
   });
 }
 
@@ -20,6 +36,6 @@ export function useRadarrImport() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(req),
-      }),
+      }).then(normalizeImportResult),
   });
 }
