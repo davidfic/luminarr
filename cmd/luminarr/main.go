@@ -91,10 +91,21 @@ func run() error {
 		return fmt.Errorf("ensuring API key: %w", err)
 	}
 	if generated {
-		logger.Warn("no API key configured — a temporary key was generated for this session",
-			"key", cfg.Auth.APIKey.Value(),
-			"hint", "set auth.api_key in config.yaml or LUMINARR_AUTH_API_KEY env var to make it permanent",
-		)
+		// Try to persist the key so it survives restarts. This works when
+		// the config directory is writable (local installs, Docker with a
+		// volume at /config). If it fails we log a warning and continue —
+		// the key still works for this session but will change on restart.
+		if _, persistErr := config.WriteConfigKey(cfg.ConfigFile, "auth.api_key", cfg.Auth.APIKey.Value()); persistErr != nil {
+			logger.Warn("API key generated but could not be persisted — it will change on next restart",
+				"key", cfg.Auth.APIKey.Value(),
+				"hint", "mount a writable volume at /config (Docker) or ensure ~/.config/luminarr/ is writable",
+				"error", persistErr,
+			)
+		} else {
+			logger.Info("API key generated and saved to config — stable across restarts",
+				"key", cfg.Auth.APIKey.Value(),
+			)
+		}
 	} else {
 		key := cfg.Auth.APIKey.Value()
 		masked := key

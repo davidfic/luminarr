@@ -32,6 +32,6 @@ COPY --from=builder /luminarr /luminarr
 # Default data directory (mount a volume here in production)
 VOLUME ["/config"]
 
-EXPOSE 7878
+EXPOSE 8282
 
 ENTRYPOINT ["/luminarr"]

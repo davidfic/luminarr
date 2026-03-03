@@ -68,22 +68,18 @@ Radarr has optional analytics. Luminarr has no analytics at all — optional or 
 ```bash
 docker run -d \
   --name luminarr \
-  -p 7878:7878 \
-  -v ~/.config/luminarr:/config \
+  -p 8282:8282 \
+  -v luminarr-data:/config \
   -v /path/to/movies:/movies \
-  -e LUMINARR_AUTH_API_KEY=your-secret-key \
   -e LUMINARR_TMDB_API_KEY=your-tmdb-key \
   ghcr.io/davidfic/luminarr:latest
 ```
 
-Open `http://localhost:7878`. The API key you set above is already active — no login screen.
+Open `http://localhost:8282`. That's it. No API key setup — on first run, Luminarr generates one and saves it to the volume, so it's stable across restarts. The browser gets it automatically.
 
-**Get a free TMDB API key:** [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (takes about two minutes).
+**Get a free TMDB API key:** [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (takes about two minutes, just an account signup).
 
-**Generate a secure API key:**
-```bash
-openssl rand -hex 32
-```
+> **Running Radarr too?** Luminarr uses port 8282 specifically so you can run both simultaneously during migration. Radarr stays on 7878.
 
 ### Docker Compose
 
@@ -92,17 +88,18 @@ services:
   luminarr:
     image: ghcr.io/davidfic/luminarr:latest
     ports:
-      - "7878:7878"
+      - "8282:8282"
     environment:
-      LUMINARR_AUTH_API_KEY: your-secret-key
       LUMINARR_TMDB_API_KEY: your-tmdb-key
+      # API key auto-generates and persists on first run — no action needed.
+      # Set LUMINARR_AUTH_API_KEY here only if you want a fixed value.
     volumes:
-      - luminarr-config:/config
+      - luminarr-data:/config
       - /path/to/movies:/movies
     restart: unless-stopped
 
 volumes:
-  luminarr-config:
+  luminarr-data:
 ```
 
 ### Build from source

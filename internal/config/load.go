@@ -15,7 +15,7 @@ import (
 
 const (
 	DefaultHost         = "0.0.0.0"
-	DefaultPort         = 7878
+	DefaultPort         = 8282
 	DefaultDBDriver     = "sqlite"
 	DefaultLogLevel     = "info"
 	DefaultLogFormat    = "json"

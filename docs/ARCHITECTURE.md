@@ -117,7 +117,7 @@ All settings can be set via `config.yaml` or environment variables. Environment 
 | Key | Default | Env var | Description |
 |-----|---------|---------|-------------|
 | `server.host` | `0.0.0.0` | `LUMINARR_SERVER_HOST` | Listen address |
-| `server.port` | `7878` | `LUMINARR_SERVER_PORT` | HTTP port |
+| `server.port` | `8282` | `LUMINARR_SERVER_PORT` | HTTP port |
 | `database.driver` | `sqlite` | `LUMINARR_DATABASE_DRIVER` | `sqlite` or `postgres` |
 | `database.path` | `~/.config/luminarr/luminarr.db` | `LUMINARR_DATABASE_PATH` | SQLite path |
 | `database.dsn` | — | `LUMINARR_DATABASE_DSN` | Postgres connection string |
@@ -271,7 +271,7 @@ Two terminals:
 make dev
 # or: go run ./cmd/luminarr
 
-# Terminal 2: React dev server (proxies /api to localhost:7878)
+# Terminal 2: React dev server (proxies /api to localhost:8282)
 cd web/ui && npm run dev
 ```
 

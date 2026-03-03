@@ -9,8 +9,9 @@
 server:
   # Address to listen on. Use 0.0.0.0 to listen on all interfaces.
   host: "0.0.0.0"
-  # Port to listen on. Default: 7878 (matches Radarr for familiarity).
-  port: 7878
+  # Port to listen on. Default: 8282.
+  # Note: Radarr uses 7878 — if running both during migration, leave this as-is.
+  port: 8282
 
 # ── Database ──────────────────────────────────────────────────────────────────
 database:
@@ -37,10 +38,9 @@ log:
 # ── Authentication ────────────────────────────────────────────────────────────
 auth:
   # API key required in the X-Api-Key header for all API requests.
-  # If empty, a random key is generated on startup (not persisted).
-  # Set this to a stable value so clients can be configured permanently.
-  #
-  # Generate a key: openssl rand -hex 32
+  # If empty, a random key is generated on first startup and automatically
+  # saved to this file — so it persists across restarts without any action
+  # from you. You can also set it explicitly here if you prefer.
   api_key: ""
 
 # ── TMDB (The Movie Database) ─────────────────────────────────────────────────
