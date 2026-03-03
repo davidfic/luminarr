@@ -1,0 +1,42 @@
+linters:
+  enable:
+    - errcheck        # check that errors are handled
+    - govet           # go vet
+    - staticcheck     # staticcheck
+    - unused          # unused code
+    - misspell        # spelling mistakes in comments and strings
+    - noctx           # http calls without context
+    - bodyclose       # ensure http response bodies are closed
+    - goimports       # goimports (also checks formatting)
+    - revive          # general linter (replaces golint)
+    - gosec           # security linter
+    - nilerr          # mistaken nil error return patterns
+    - exhaustive      # exhaustive switch statements on enums
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/davidfic/luminarr
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+      - name: var-naming
+        severity: warning
+  gosec:
+    excludes:
+      - G304 # file path provided as taint input — we intentionally take user-configured paths
+
+issues:
+  exclude-rules:
+    # Test files get relaxed error checking and gosec rules.
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+    # The db/generated directory is sqlc output — don't lint generated code.
+    - path: internal/db/generated/
+      linters:
+        - all
+
+  max-issues-per-linter: 0
+  max-same-issues: 0

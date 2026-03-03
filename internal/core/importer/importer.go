@@ -1,0 +1,292 @@
+// Package importer moves completed downloads into the library directory tree,
+// creates movie_file records, and updates movie status.
+package importer
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sort"
+	"time"
+
+	"github.com/google/uuid"
+
+	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
+	"github.com/davidfic/luminarr/internal/events"
+	"github.com/davidfic/luminarr/internal/core/quality"
+	"github.com/davidfic/luminarr/internal/core/renamer"
+	"github.com/davidfic/luminarr/pkg/plugin"
+)
+
+// videoExtensions is the set of file extensions considered video files.
+var videoExtensions = map[string]bool{
+	".mkv":  true,
+	".mp4":  true,
+	".avi":  true,
+	".ts":   true,
+	".m2ts": true,
+	".mov":  true,
+	".wmv":  true,
+}
+
+// Service subscribes to TypeDownloadDone events and imports completed files
+// into the library directory tree.
+type Service struct {
+	q      dbsqlite.Querier
+	bus    *events.Bus
+	logger *slog.Logger
+}
+
+// NewService creates a new Service.
+func NewService(q dbsqlite.Querier, bus *events.Bus, logger *slog.Logger) *Service {
+	return &Service{q: q, bus: bus, logger: logger}
+}
+
+// Subscribe registers the importer handler on the event bus.
+// Call this once during application startup.
+func (s *Service) Subscribe() {
+	s.bus.Subscribe(func(ctx context.Context, e events.Event) {
+		if e.Type != events.TypeDownloadDone {
+			return
+		}
+		grabID, _ := e.Data["grab_id"].(string)
+		contentPath, _ := e.Data["content_path"].(string)
+		if grabID == "" {
+			s.logger.Warn("import: TypeDownloadDone event missing grab_id")
+			return
+		}
+		if err := s.importFile(ctx, grabID, contentPath); err != nil {
+			s.logger.Error("import failed",
+				"grab_id", grabID,
+				"content_path", contentPath,
+				"error", err,
+			)
+			if s.bus != nil {
+				s.bus.Publish(ctx, events.Event{
+					Type:    events.TypeImportFailed,
+					MovieID: e.MovieID,
+					Data: map[string]any{
+						"grab_id": grabID,
+						"error":   err.Error(),
+					},
+				})
+			}
+		}
+	})
+}
+
+// importFile performs the full import pipeline for a single completed download.
+func (s *Service) importFile(ctx context.Context, grabID, contentPath string) error {
+	s.logger.Info("import started", "grab_id", grabID, "content_path", contentPath)
+
+	// ── Load context from DB ───────────────────────────────────────────────
+	grab, err := s.q.GetGrabByID(ctx, grabID)
+	if err != nil {
+		return fmt.Errorf("loading grab %q: %w", grabID, err)
+	}
+
+	mov, err := s.q.GetMovie(ctx, grab.MovieID)
+	if err != nil {
+		return fmt.Errorf("loading movie %q: %w", grab.MovieID, err)
+	}
+
+	lib, err := s.q.GetLibrary(ctx, mov.LibraryID)
+	if err != nil {
+		return fmt.Errorf("loading library %q: %w", mov.LibraryID, err)
+	}
+
+	// ── Resolve source file ────────────────────────────────────────────────
+	srcPath, err := resolveSourceFile(contentPath)
+	if err != nil {
+		return fmt.Errorf("resolving source file from %q: %w", contentPath, err)
+	}
+
+	// ── Reconstruct quality + compute destination ──────────────────────────
+	q := qualityFromGrab(grab)
+	fileFormat := renamer.DefaultFileFormat
+	if lib.NamingFormat != nil && *lib.NamingFormat != "" {
+		fileFormat = *lib.NamingFormat
+	}
+	rm := renamer.Movie{
+		Title:         mov.Title,
+		OriginalTitle: mov.OriginalTitle,
+		Year:          int(mov.Year),
+	}
+	ext := filepath.Ext(srcPath)
+	destPath := renamer.DestPath(lib.RootPath, fileFormat, rm, q, ext)
+
+	// ── Create destination directory ───────────────────────────────────────
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+		return fmt.Errorf("creating destination directory: %w", err)
+	}
+
+	// ── Transfer the file (hardlink preferred, copy+delete as fallback) ────
+	if err := transferFile(srcPath, destPath); err != nil {
+		return fmt.Errorf("transferring file %q → %q: %w", srcPath, destPath, err)
+	}
+
+	// ── Persist movie_file record ──────────────────────────────────────────
+	info, err := os.Stat(destPath)
+	if err != nil {
+		return fmt.Errorf("stat after transfer: %w", err)
+	}
+
+	qualityJSON, err := json.Marshal(q)
+	if err != nil {
+		return fmt.Errorf("marshaling quality: %w", err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := s.q.CreateMovieFile(ctx, dbsqlite.CreateMovieFileParams{
+		ID:          uuid.New().String(),
+		MovieID:     grab.MovieID,
+		Path:        destPath,
+		SizeBytes:   info.Size(),
+		QualityJson: string(qualityJSON),
+		ImportedAt:  now,
+		IndexedAt:   now,
+	}); err != nil {
+		return fmt.Errorf("creating movie_file record: %w", err)
+	}
+
+	// ── Update movie status + path ─────────────────────────────────────────
+	destDir := filepath.Dir(destPath)
+	if _, err := s.q.UpdateMoviePath(ctx, dbsqlite.UpdateMoviePathParams{
+		Path:      &destDir,
+		UpdatedAt: now,
+		ID:        grab.MovieID,
+	}); err != nil {
+		return fmt.Errorf("updating movie path: %w", err)
+	}
+
+	if _, err := s.q.UpdateMovieStatus(ctx, dbsqlite.UpdateMovieStatusParams{
+		Status:    "downloaded",
+		UpdatedAt: now,
+		ID:        grab.MovieID,
+	}); err != nil {
+		return fmt.Errorf("updating movie status: %w", err)
+	}
+
+	// ── Publish success event ──────────────────────────────────────────────
+	s.bus.Publish(ctx, events.Event{
+		Type:    events.TypeImportComplete,
+		MovieID: grab.MovieID,
+		Data: map[string]any{
+			"grab_id":   grabID,
+			"dest_path": destPath,
+		},
+	})
+
+	s.logger.Info("import complete",
+		"movie_id", grab.MovieID,
+		"dest_path", destPath,
+	)
+	return nil
+}
+
+// resolveSourceFile returns the path to the video file to import.
+// If contentPath is a regular file, it is returned directly.
+// If it is a directory, the largest video file inside it is returned.
+func resolveSourceFile(contentPath string) (string, error) {
+	if contentPath == "" {
+		return "", errors.New("empty content_path")
+	}
+
+	info, err := os.Stat(contentPath)
+	if err != nil {
+		return "", err
+	}
+
+	if !info.IsDir() {
+		if !videoExtensions[filepath.Ext(contentPath)] {
+			return "", fmt.Errorf("not a recognised video extension: %q", filepath.Ext(contentPath))
+		}
+		return contentPath, nil
+	}
+
+	// Directory: walk and find the largest video file.
+	type candidate struct {
+		path string
+		size int64
+	}
+	var candidates []candidate
+
+	err = filepath.WalkDir(contentPath, func(path string, d os.DirEntry, werr error) error {
+		if werr != nil || d.IsDir() {
+			return werr
+		}
+		if !videoExtensions[filepath.Ext(path)] {
+			return nil
+		}
+		fi, err := d.Info()
+		if err != nil {
+			return nil
+		}
+		candidates = append(candidates, candidate{path: path, size: fi.Size()})
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("walking content directory: %w", err)
+	}
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("no video file found in %q", contentPath)
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].size > candidates[j].size
+	})
+	return candidates[0].path, nil
+}
+
+// transferFile copies src to dst.
+// It tries os.Link first (same filesystem, no data copy); on failure it falls
+// back to a full io.Copy followed by removal of the source.
+func transferFile(src, dst string) error {
+	if err := os.Link(src, dst); err == nil {
+		return nil
+	}
+	// Fallback: copy then delete.
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(dst)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		os.Remove(dst)
+		return err
+	}
+
+	return os.Remove(src)
+}
+
+// qualityFromGrab reconstructs a plugin.Quality from the denormalized fields
+// stored in grab_history.
+func qualityFromGrab(g dbsqlite.GrabHistory) plugin.Quality {
+	res := plugin.Resolution(g.ReleaseResolution)
+	src := plugin.Source(g.ReleaseSource)
+	codec := plugin.Codec(g.ReleaseCodec)
+	hdr := plugin.HDRFormat(g.ReleaseHdr)
+	return plugin.Quality{
+		Resolution: res,
+		Source:     src,
+		Codec:      codec,
+		HDR:        hdr,
+		Name:       quality.BuildName(res, src, codec, hdr),
+	}
+}

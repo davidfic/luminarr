@@ -1,0 +1,194 @@
+# Luminarr
+
+> A self-hosted movie collection manager. Monitors your library, searches indexers, and automatically grabs the best available release — with a quality model that makes sense.
+
+**[Quick Start](#quick-start)** · **[Import from Radarr](#import-from-radarr-in-one-click)** · **[Features](#features)** · **[Privacy](#privacy--no-telemetry)** · **[Architecture](docs/ARCHITECTURE.md)**
+
+---
+
+## Why Luminarr?
+
+Radarr is good software. It built the standard for self-hosted movie management and a lot of us have been running it for years. Luminarr starts from the same ideas and fixes the parts that have always felt wrong.
+
+### Quality profiles that actually make sense
+
+Radarr's quality system has a dirty secret: to control **codec** (x265, AV1) or **HDR** (HDR10, Dolby Vision), you have to learn Custom Formats — a scoring system where you define regex patterns, assign weights, and set thresholds. It's powerful but it's also the most common source of confusion in the Radarr community.
+
+Luminarr makes codec and HDR **first-class dimensions** in every quality profile. You pick them from a dropdown. The profile says exactly what you want: "Bluray-1080p, x265, no HDR" — not "Bluray-1080p, plus at least 10 points of custom format score, minus anything tagged CAM."
+
+```
+Radarr:   Resolution + Source + Custom Formats (scoring rules you write yourself)
+Luminarr: Resolution + Source + Codec + HDR    (just pick what you want)
+```
+
+No Custom Formats to configure. No score thresholds to tune. Your quality profile is self-documenting.
+
+### One-click migration from Radarr
+
+Luminarr connects to your live Radarr instance and imports everything — quality profiles, libraries, indexers, download clients, and your entire movie list — in one go. You don't re-enter a single thing. Full details in [Import from Radarr](#import-from-radarr-in-one-click).
+
+### Modern stack, small footprint
+
+| | Radarr | Luminarr |
+|---|---|---|
+| Backend | .NET / Mono | Go |
+| Frontend | Angular | React |
+| Database | SQLite / Postgres | SQLite / Postgres |
+| Memory (idle) | ~300–500 MB | ~30–60 MB |
+| Startup time | 10–30 s | < 1 s |
+
+The Go backend starts in under a second, idles well under 100 MB, and handles concurrent requests without per-request overhead. The React frontend is a single-page app that loads fast and works on mobile.
+
+### Zero telemetry, ever
+
+Radarr has optional analytics. Luminarr has no analytics at all — optional or otherwise. It phones home to nothing. Full details in [Privacy](#privacy--no-telemetry).
+
+---
+
+## Features
+
+- **Movie gallery** — poster grid or list view with filters by status, quality, library, and search
+- **TMDB integration** — search and add movies with metadata, posters, and cast information
+- **Quality profiles** — explicit codec + HDR dimensions, upgrade rules, and cutoffs
+- **Torznab & Newznab indexers** — compatible with Prowlarr and Jackett
+- **qBittorrent & Deluge** — send grabs and monitor download progress
+- **Automatic RSS sync** — checks indexers every 15 minutes, grabs matching releases
+- **Auto-import** — moves or hardlinks completed downloads into your library
+- **Radarr import** — one-click migration from a running Radarr instance
+- **Notifications** — Discord, webhook, and email alerts for grabs, imports, and health issues
+- **Health monitoring** — disk space, download client connectivity, indexer reachability
+- **OpenAPI docs** — interactive API at `/api/docs`
+
+---
+
+## Quick Start
+
+### Docker (recommended)
+
+```bash
+docker run -d \
+  --name luminarr \
+  -p 7878:7878 \
+  -v ~/.config/luminarr:/config \
+  -v /path/to/movies:/movies \
+  -e LUMINARR_AUTH_API_KEY=your-secret-key \
+  -e LUMINARR_TMDB_API_KEY=your-tmdb-key \
+  ghcr.io/davidfic/luminarr:latest
+```
+
+Open `http://localhost:7878`. The API key you set above is already active — no login screen.
+
+**Get a free TMDB API key:** [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (takes about two minutes).
+
+**Generate a secure API key:**
+```bash
+openssl rand -hex 32
+```
+
+### Docker Compose
+
+```yaml
+services:
+  luminarr:
+    image: ghcr.io/davidfic/luminarr:latest
+    ports:
+      - "7878:7878"
+    environment:
+      LUMINARR_AUTH_API_KEY: your-secret-key
+      LUMINARR_TMDB_API_KEY: your-tmdb-key
+    volumes:
+      - luminarr-config:/config
+      - /path/to/movies:/movies
+    restart: unless-stopped
+
+volumes:
+  luminarr-config:
+```
+
+### Build from source
+
+```bash
+git clone https://github.com/davidfic/luminarr
+cd luminarr
+make build
+./bin/luminarr
+```
+
+The full configuration reference is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#configuration).
+
+---
+
+## Import from Radarr in One Click
+
+If you're already running Radarr, you don't need to set Luminarr up from scratch.
+
+1. Go to **Settings → Import** in the Luminarr UI
+2. Enter your Radarr URL and API key (Settings → General → Security in Radarr)
+3. Click **Connect & Preview** — Luminarr shows you what it found
+4. Select which categories to import and click **Import**
+
+Luminarr imports (in order, to respect dependencies):
+- Quality profiles → mapped to Luminarr's explicit codec/HDR format
+- Libraries from your Radarr root folders
+- Indexers (Torznab and Newznab only)
+- Download clients (qBittorrent and Deluge only)
+- Your entire movie list (duplicates skipped by TMDB ID)
+
+Radarr keeps running during the import — there's no cutover moment. Take your time, verify everything looks right, then switch DNS or your port forward when you're ready.
+
+---
+
+## Privacy & No Telemetry
+
+Luminarr makes outbound connections **only** to services you explicitly configure:
+
+| Service | When |
+|---|---|
+| TMDB | When you search for or refresh a movie (requires your own API key) |
+| Your indexers | RSS sync and release search |
+| Your download clients | Sending grabs, polling queue |
+| Your notification targets | Discord, webhook, email — only if configured |
+
+**What Luminarr never does:**
+- No telemetry or usage analytics
+- No crash reporting to external services
+- No update checks phoning home
+- No shared API keys — you supply your own TMDB key, so your rate limits are yours alone
+
+Credentials are stored in your local `config.yaml` only and never written to logs. The codebase uses a `Secret` type that renders as `***` in all output.
+
+Full details: [PRIVACY.md](PRIVACY.md)
+
+---
+
+## A Note on How This Was Built
+
+Luminarr was built with AI assistance — specifically [Claude](https://claude.ai) (Anthropic) as the primary code generator, with human design and review throughout. We're not hiding it.
+
+What that means in practice:
+
+- Every architectural decision was made by a human and is documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Security-sensitive code (auth middleware, credential handling, external HTTP requests) was explicitly designed with security in mind and reviewed
+- The codebase follows consistent patterns throughout — the AI didn't switch styles halfway through
+- A test suite covers all core services (quality parsing, profile matching, library management, movie CRUD, event dispatch, import logic)
+- The code is readable. If you find something that doesn't make sense, open an issue — we consider that a bug
+
+We think AI-assisted development done right produces better software: more consistent patterns, better documentation, faster iteration. The result should stand on its own merits. Read the code. We welcome scrutiny.
+
+---
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome.
+
+- **Bug reports:** use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.yml)
+- **Feature requests:** use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.yml)
+- **Code:** read [CONTRIBUTING.md](.github/CONTRIBUTING.md) before opening a PR
+
+For architectural context — why things are the way they are — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE)

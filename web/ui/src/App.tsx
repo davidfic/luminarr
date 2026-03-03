@@ -1,0 +1,86 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
+import { Shell } from "@/layouts/Shell";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import Dashboard from "@/pages/dashboard/Dashboard";
+import MovieDetail from "@/pages/movies/MovieDetail";
+import Queue from "@/pages/queue/Queue";
+import SystemPage from "@/pages/settings/system/SystemPage";
+import LibraryList from "@/pages/settings/libraries/LibraryList";
+import QualityProfileList from "@/pages/settings/quality-profiles/QualityProfileList";
+import IndexerList from "@/pages/settings/indexers/IndexerList";
+import DownloadClientList from "@/pages/settings/download-clients/DownloadClientList";
+import NotificationList from "@/pages/settings/notifications/NotificationList";
+import ImportPage from "@/pages/settings/import/ImportPage";
+
+// No global history endpoint exists — stub for now
+function HistoryPage() {
+  return (
+    <div style={{ padding: 24 }}>
+      <h1
+        style={{
+          margin: 0,
+          fontSize: 20,
+          fontWeight: 600,
+          color: "var(--color-text-primary)",
+          letterSpacing: "-0.01em",
+        }}
+      >
+        History
+      </h1>
+      <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--color-text-secondary)" }}>
+        Per-movie grab history is visible on each movie&apos;s detail page. A global history
+        view is not yet available.
+      </p>
+    </div>
+  );
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ErrorBoundary>
+          <Routes>
+            <Route element={<Shell />}>
+              <Route index element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+              <Route path="movies/:id" element={<ErrorBoundary><MovieDetail /></ErrorBoundary>} />
+              <Route path="queue" element={<ErrorBoundary><Queue /></ErrorBoundary>} />
+              <Route path="history" element={<ErrorBoundary><HistoryPage /></ErrorBoundary>} />
+              <Route path="settings">
+                <Route path="libraries" element={<ErrorBoundary><LibraryList /></ErrorBoundary>} />
+                <Route path="quality-profiles" element={<ErrorBoundary><QualityProfileList /></ErrorBoundary>} />
+                <Route path="indexers" element={<ErrorBoundary><IndexerList /></ErrorBoundary>} />
+                <Route path="download-clients" element={<ErrorBoundary><DownloadClientList /></ErrorBoundary>} />
+                <Route path="notifications" element={<ErrorBoundary><NotificationList /></ErrorBoundary>} />
+                <Route path="system" element={<ErrorBoundary><SystemPage /></ErrorBoundary>} />
+                <Route path="import" element={<ErrorBoundary><ImportPage /></ErrorBoundary>} />
+              </Route>
+            </Route>
+          </Routes>
+        </ErrorBoundary>
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: "var(--color-bg-elevated)",
+              border: "1px solid var(--color-border-default)",
+              color: "var(--color-text-primary)",
+              fontSize: 13,
+            },
+          }}
+        />
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}

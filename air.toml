@@ -1,0 +1,36 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd        = "go build -o ./tmp/luminarr ./cmd/luminarr"
+  bin        = "./tmp/luminarr"
+  delay      = 500
+  kill_delay = "500ms"
+
+  # Watch these file extensions for changes
+  include_ext = ["go", "yaml", "sql"]
+
+  # Ignore these directories
+  exclude_dir = [
+    "tmp",
+    "bin",
+    "vendor",
+    "plans",
+    "docker",
+    "internal/db/generated",
+  ]
+
+  # Never reload on test files (run tests manually)
+  exclude_regex = ["_test\\.go"]
+
+[log]
+  color = true
+
+[color]
+  build   = "yellow"
+  runner  = "green"
+  watcher = "cyan"
+  app     = ""
+
+[misc]
+  clean_on_exit = true

@@ -1,0 +1,20 @@
+services:
+  luminarr:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: luminarr:local
+    container_name: luminarr
+    restart: unless-stopped
+    ports:
+      - "7878:7878"
+    volumes:
+      # Bind-mount the same directory that `make run` uses on the host.
+      # Both Docker and the bare binary share ONE database file.
+      - ${HOME}/.config/luminarr:/config
+    environment:
+      LUMINARR_AUTH_API_KEY: "changeme"
+      # Explicitly set the DB path so the container doesn't rely on $HOME
+      # detection (which resolves to "/" in scratch images, not "/config").
+      LUMINARR_DATABASE_PATH: "/config/luminarr.db"
+      # LUMINARR_TMDB_API_KEY: "your-tmdb-key"
