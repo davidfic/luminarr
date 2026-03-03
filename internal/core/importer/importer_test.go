@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,10 +24,13 @@ type fakeQuerier struct {
 	movie dbsqlite.Movie
 	lib   dbsqlite.Library
 
-	// captured writes
+	mu            sync.Mutex
 	createdFile   *dbsqlite.CreateMovieFileParams
 	updatedPath   *dbsqlite.UpdateMoviePathParams
 	updatedStatus *dbsqlite.UpdateMovieStatusParams
+
+	// fileDone is closed when CreateMovieFile is called (if non-nil).
+	fileDone chan struct{}
 }
 
 func (f *fakeQuerier) GetGrabByID(_ context.Context, id string) (dbsqlite.GrabHistory, error) {
@@ -38,16 +43,36 @@ func (f *fakeQuerier) GetLibrary(_ context.Context, id string) (dbsqlite.Library
 	return f.lib, nil
 }
 func (f *fakeQuerier) CreateMovieFile(_ context.Context, p dbsqlite.CreateMovieFileParams) (dbsqlite.MovieFile, error) {
+	f.mu.Lock()
 	f.createdFile = &p
+	f.mu.Unlock()
+	if f.fileDone != nil {
+		close(f.fileDone)
+	}
 	return dbsqlite.MovieFile{}, nil
 }
 func (f *fakeQuerier) UpdateMoviePath(_ context.Context, p dbsqlite.UpdateMoviePathParams) (dbsqlite.Movie, error) {
+	f.mu.Lock()
 	f.updatedPath = &p
+	f.mu.Unlock()
 	return f.movie, nil
 }
 func (f *fakeQuerier) UpdateMovieStatus(_ context.Context, p dbsqlite.UpdateMovieStatusParams) (dbsqlite.Movie, error) {
+	f.mu.Lock()
 	f.updatedStatus = &p
+	f.mu.Unlock()
 	return f.movie, nil
+}
+
+func (f *fakeQuerier) getCreatedFile() *dbsqlite.CreateMovieFileParams {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.createdFile
+}
+func (f *fakeQuerier) getUpdatedStatus() *dbsqlite.UpdateMovieStatusParams {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.updatedStatus
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -116,26 +141,32 @@ func TestImport_SingleFile(t *testing.T) {
 		libID   = "lib-1"
 	)
 	fq := &fakeQuerier{
-		grab:  newTestGrab(movieID),
-		movie: newTestMovie(movieID, libID),
-		lib:   newTestLibrary(libID, libRoot),
+		grab:     newTestGrab(movieID),
+		movie:    newTestMovie(movieID, libID),
+		lib:      newTestLibrary(libID, libRoot),
+		fileDone: make(chan struct{}),
 	}
 
 	logger := logging.New("error", "text")
 	bus := events.New(logger)
 
-	var gotComplete *events.Event
+	// completeDone is closed by the subscriber goroutine once TypeImportComplete
+	// is received. Waiting on it is the proper synchronization point — the
+	// goroutine that closes it was started after CreateMovieFile/UpdateMovieStatus
+	// returned, establishing the necessary happens-before chain.
+	completeDone := make(chan struct{})
+	var gotComplete atomic.Pointer[events.Event]
 	bus.Subscribe(func(_ context.Context, e events.Event) {
 		if e.Type == events.TypeImportComplete {
 			cp := e
-			gotComplete = &cp
+			gotComplete.Store(&cp)
+			close(completeDone)
 		}
 	})
 
 	svc := importer.NewService(fq, bus, logger)
 	svc.Subscribe()
 
-	// Fire the download done event.
 	ctx := context.Background()
 	bus.Publish(ctx, events.Event{
 		Type:    events.TypeDownloadDone,
@@ -146,32 +177,37 @@ func TestImport_SingleFile(t *testing.T) {
 		},
 	})
 
-	// Give the async handler time to finish.
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-completeDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout: TypeImportComplete never received")
+	}
 
-	if fq.createdFile == nil {
+	cf := fq.getCreatedFile()
+	if cf == nil {
 		t.Fatal("expected CreateMovieFile to be called")
 	}
-	if fq.createdFile.MovieID != movieID {
-		t.Errorf("movie_file.movie_id = %q, want %q", fq.createdFile.MovieID, movieID)
+	if cf.MovieID != movieID {
+		t.Errorf("movie_file.movie_id = %q, want %q", cf.MovieID, movieID)
 	}
-	if filepath.Ext(fq.createdFile.Path) != ".mkv" {
-		t.Errorf("movie_file.path extension = %q, want .mkv", filepath.Ext(fq.createdFile.Path))
+	if filepath.Ext(cf.Path) != ".mkv" {
+		t.Errorf("movie_file.path extension = %q, want .mkv", filepath.Ext(cf.Path))
 	}
 
-	if fq.updatedStatus == nil {
+	us := fq.getUpdatedStatus()
+	if us == nil {
 		t.Fatal("expected UpdateMovieStatus to be called")
 	}
-	if fq.updatedStatus.Status != "downloaded" {
-		t.Errorf("movie status = %q, want \"downloaded\"", fq.updatedStatus.Status)
+	if us.Status != "downloaded" {
+		t.Errorf("movie status = %q, want \"downloaded\"", us.Status)
 	}
 
-	if gotComplete == nil {
+	if gotComplete.Load() == nil {
 		t.Fatal("expected TypeImportComplete event")
 	}
 
 	// Verify the file actually exists at the destination.
-	if _, err := os.Stat(fq.createdFile.Path); err != nil {
+	if _, err := os.Stat(cf.Path); err != nil {
 		t.Errorf("destination file not found: %v", err)
 	}
 }
@@ -183,7 +219,7 @@ func TestImport_Directory_PicksLargestVideo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Content dir with multiple files; the .mkv should be picked.
+	// Content dir with multiple files; the largest .mkv should be picked.
 	contentDir := filepath.Join(tmp, "downloads", "Movie.Dir")
 	if err := os.MkdirAll(contentDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -198,9 +234,10 @@ func TestImport_Directory_PicksLargestVideo(t *testing.T) {
 		libID   = "lib-1"
 	)
 	fq := &fakeQuerier{
-		grab:  newTestGrab(movieID),
-		movie: newTestMovie(movieID, libID),
-		lib:   newTestLibrary(libID, libRoot),
+		grab:     newTestGrab(movieID),
+		movie:    newTestMovie(movieID, libID),
+		lib:      newTestLibrary(libID, libRoot),
+		fileDone: make(chan struct{}),
 	}
 
 	logger := logging.New("error", "text")
@@ -218,18 +255,23 @@ func TestImport_Directory_PicksLargestVideo(t *testing.T) {
 		},
 	})
 
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-fq.fileDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout: CreateMovieFile never called")
+	}
 
-	if fq.createdFile == nil {
+	cf := fq.getCreatedFile()
+	if cf == nil {
 		t.Fatal("expected CreateMovieFile to be called")
 	}
 	// The imported file should be the largest .mkv
-	if filepath.Base(fq.createdFile.Path) != "Inception (2010) Bluray-1080p.mkv" {
-		t.Logf("dest path = %q", fq.createdFile.Path)
+	if filepath.Base(cf.Path) != "Inception (2010) Bluray-1080p.mkv" {
+		t.Logf("dest path = %q", cf.Path)
 	}
 	// Verify it's a .mkv
-	if filepath.Ext(fq.createdFile.Path) != ".mkv" {
-		t.Errorf("expected .mkv, got %q", filepath.Ext(fq.createdFile.Path))
+	if filepath.Ext(cf.Path) != ".mkv" {
+		t.Errorf("expected .mkv, got %q", filepath.Ext(cf.Path))
 	}
 }
 
@@ -237,10 +279,10 @@ func TestImport_MissingGrabID(t *testing.T) {
 	logger := logging.New("error", "text")
 	bus := events.New(logger)
 
-	var gotFailed bool
+	var gotFailed atomic.Bool
 	bus.Subscribe(func(_ context.Context, e events.Event) {
 		if e.Type == events.TypeImportFailed {
-			gotFailed = true
+			gotFailed.Store(true)
 		}
 	})
 
@@ -257,14 +299,16 @@ func TestImport_MissingGrabID(t *testing.T) {
 		},
 	})
 
-	time.Sleep(50 * time.Millisecond)
+	// We're asserting absence — no meaningful completion event to wait on.
+	// A short sleep is sufficient; the handler returns almost immediately.
+	time.Sleep(100 * time.Millisecond)
 
 	// No import should have run — no DB calls.
-	if fq.createdFile != nil {
+	if fq.getCreatedFile() != nil {
 		t.Error("expected no CreateMovieFile call")
 	}
 	// TypeImportFailed should NOT be fired either (we just warn and return).
-	if gotFailed {
+	if gotFailed.Load() {
 		t.Error("expected no TypeImportFailed for missing grab_id")
 	}
 }
@@ -278,10 +322,13 @@ func TestImport_EmptyContentPath(t *testing.T) {
 	logger := logging.New("error", "text")
 	bus := events.New(logger)
 
-	var gotFailed bool
+	failedDone := make(chan struct{})
+	var gotFailed atomic.Bool
 	bus.Subscribe(func(_ context.Context, e events.Event) {
 		if e.Type == events.TypeImportFailed {
-			gotFailed = true
+			if gotFailed.CompareAndSwap(false, true) {
+				close(failedDone)
+			}
 		}
 	})
 
@@ -303,9 +350,13 @@ func TestImport_EmptyContentPath(t *testing.T) {
 		},
 	})
 
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-failedDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout: TypeImportFailed never received")
+	}
 
-	if !gotFailed {
+	if !gotFailed.Load() {
 		t.Error("expected TypeImportFailed event for empty content_path")
 	}
 }
