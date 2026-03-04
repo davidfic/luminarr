@@ -386,15 +386,14 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
     updateRow(path, { selected: !rows.get(path)?.selected });
   }
 
-  function toggleSelectAllMatched() {
-    const allMatchedSelected = [...rows.values()]
-      .filter((r) => r.match && !r.imported)
-      .every((r) => r.selected);
+  function toggleSelectAll() {
+    const allSelectable = [...rows.values()].filter((r) => !r.imported);
+    const allSelected = allSelectable.every((r) => r.selected);
     setRows((prev) => {
       const next = new Map(prev);
       for (const [k, r] of next) {
-        if (r.match && !r.imported) {
-          next.set(k, { ...r, selected: !allMatchedSelected });
+        if (!r.imported) {
+          next.set(k, { ...r, selected: !allSelected });
         }
       }
       return next;
@@ -442,7 +441,7 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
   const allRows = [...rows.values()];
   const displayRows = showUnmatched ? allRows : allRows.filter((r) => r.match || r.imported);
   const matched = allRows.filter((r) => r.match && !r.imported);
-  const selected = allRows.filter((r) => r.selected && r.match && !r.imported);
+  const selected = allRows.filter((r) => r.selected && !r.imported);
   const unmatchedCount = allRows.filter((r) => !r.match && !r.imported).length;
 
   async function handleImport() {
@@ -452,13 +451,12 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
     setImportTotal(selected.length);
 
     for (const row of selected) {
-      if (!row.match) continue;
       updateRow(row.file.path, { importing: true });
       try {
         await importFile.mutateAsync({
           libraryId: library.id,
           file_path: row.file.path,
-          tmdb_id: row.match.tmdb_id,
+          tmdb_id: row.match?.tmdb_id ?? 0,
         });
         updateRow(row.file.path, { importing: false, imported: true, selected: false });
       } catch {
@@ -579,13 +577,13 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
             Show unmatched ({unmatchedCount})
           </label>
 
-          {/* Select all matched */}
-          {matched.length > 0 && (
+          {/* Select all / deselect all */}
+          {allRows.filter((r) => !r.imported).length > 0 && (
             <button
-              onClick={toggleSelectAllMatched}
+              onClick={toggleSelectAll}
               style={smallBtn("var(--color-text-secondary)", "var(--color-bg-elevated)")}
             >
-              {matched.every((r) => r.selected) ? "Deselect all" : "Select all matched"}
+              {allRows.filter((r) => !r.imported).every((r) => r.selected) ? "Deselect all" : "Select all"}
             </button>
           )}
         </div>
@@ -770,9 +768,9 @@ function FileTableRow({
         <input
           type="checkbox"
           checked={selected}
-          disabled={!match || imported || importing}
+          disabled={imported || importing}
           onChange={onToggleSelect}
-          style={{ cursor: match && !imported && !importing ? "pointer" : "default" }}
+          style={{ cursor: !imported && !importing ? "pointer" : "default" }}
         />
       </td>
 

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -361,20 +363,39 @@ func RegisterLibraryRoutes(api huma.API, svc *library.Service, movieSvc *movie.S
 		// which movie.Add will accept (profile validation is relaxed on import).
 		qpID := lib.DefaultQualityProfileID
 
-		// Add the movie if it does not exist yet; tolerate ErrAlreadyExists.
-		m, addErr := movieSvc.Add(ctx, movie.AddRequest{
-			TMDBID:           input.Body.TmdbID,
-			LibraryID:        lib.ID,
-			QualityProfileID: qpID,
-			Monitored:        true,
-		})
-		if addErr != nil && !errors.Is(addErr, movie.ErrAlreadyExists) {
-			return nil, huma.NewError(http.StatusInternalServerError, "failed to add movie", addErr)
-		}
-		if errors.Is(addErr, movie.ErrAlreadyExists) {
-			m, err = movieSvc.GetByTMDBID(ctx, input.Body.TmdbID)
-			if err != nil {
-				return nil, huma.NewError(http.StatusInternalServerError, "failed to get existing movie", err)
+		var m movie.Movie
+		var addErr error
+		if input.Body.TmdbID == 0 {
+			// No TMDB match — create an unmatched placeholder using the raw
+			// filename stem as the title. The record is not monitored.
+			stem := strings.TrimSuffix(
+				filepath.Base(input.Body.FilePath),
+				filepath.Ext(input.Body.FilePath),
+			)
+			m, addErr = movieSvc.AddUnmatched(ctx, movie.AddUnmatchedRequest{
+				Title:            stem,
+				LibraryID:        lib.ID,
+				QualityProfileID: qpID,
+			})
+			if addErr != nil {
+				return nil, huma.NewError(http.StatusInternalServerError, "failed to add unmatched movie", addErr)
+			}
+		} else {
+			// Add the movie if it does not exist yet; tolerate ErrAlreadyExists.
+			m, addErr = movieSvc.Add(ctx, movie.AddRequest{
+				TMDBID:           input.Body.TmdbID,
+				LibraryID:        lib.ID,
+				QualityProfileID: qpID,
+				Monitored:        true,
+			})
+			if addErr != nil && !errors.Is(addErr, movie.ErrAlreadyExists) {
+				return nil, huma.NewError(http.StatusInternalServerError, "failed to add movie", addErr)
+			}
+			if errors.Is(addErr, movie.ErrAlreadyExists) {
+				m, err = movieSvc.GetByTMDBID(ctx, input.Body.TmdbID)
+				if err != nil {
+					return nil, huma.NewError(http.StatusInternalServerError, "failed to get existing movie", err)
+				}
 			}
 		}
 

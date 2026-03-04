@@ -71,6 +71,15 @@ type AddRequest struct {
 	MinimumAvailability string // defaults to "released" when empty
 }
 
+// AddUnmatchedRequest carries the fields needed to add a file that has no TMDB
+// match. The resulting movie record has tmdb_id = 0, monitored = false, and
+// uses the caller-supplied title (typically the raw filename stem).
+type AddUnmatchedRequest struct {
+	Title            string
+	LibraryID        string
+	QualityProfileID string
+}
+
 // ListRequest carries filter and pagination options for listing movies.
 type ListRequest struct {
 	LibraryID string // empty = all libraries
@@ -291,6 +300,57 @@ func (s *Service) addStub(ctx context.Context, req AddRequest) (Movie, error) {
 		slog.String("movie_id", m.ID),
 		slog.Int("tmdb_id", req.TMDBID),
 	)
+
+	s.bus.Publish(ctx, events.Event{
+		Type:    events.TypeMovieAdded,
+		MovieID: m.ID,
+		Data: map[string]any{
+			"movie_id": m.ID,
+			"title":    m.Title,
+		},
+	})
+
+	return m, nil
+}
+
+// AddUnmatched inserts a placeholder movie record for a file that has no TMDB
+// match. The movie is created with tmdb_id = 0 and monitored = false so it
+// appears in the library but is not actively sought for download. Calling
+// Update or RefreshMetadata later can associate it with a real TMDB entry.
+func (s *Service) AddUnmatched(ctx context.Context, req AddUnmatchedRequest) (Movie, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	row, err := s.q.CreateMovie(ctx, dbsqlite.CreateMovieParams{
+		ID:                  uuid.New().String(),
+		TmdbID:              0,
+		ImdbID:              nil,
+		Title:               req.Title,
+		OriginalTitle:       "",
+		Year:                0,
+		Overview:            "",
+		RuntimeMinutes:      nil,
+		GenresJson:          "[]",
+		PosterUrl:           nil,
+		FanartUrl:           nil,
+		Status:              "announced",
+		Monitored:           0,
+		LibraryID:           req.LibraryID,
+		QualityProfileID:    req.QualityProfileID,
+		MinimumAvailability: "released",
+		ReleaseDate:         "",
+		Path:                nil,
+		AddedAt:             now,
+		UpdatedAt:           now,
+		MetadataRefreshedAt: nil,
+	})
+	if err != nil {
+		return Movie{}, fmt.Errorf("inserting unmatched movie: %w", err)
+	}
+
+	m, err := rowToMovie(row)
+	if err != nil {
+		return Movie{}, err
+	}
 
 	s.bus.Publish(ctx, events.Event{
 		Type:    events.TypeMovieAdded,
