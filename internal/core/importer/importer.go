@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/davidfic/luminarr/internal/core/mediamanagement"
 	"github.com/davidfic/luminarr/internal/core/quality"
 	"github.com/davidfic/luminarr/internal/core/renamer"
 	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
@@ -41,11 +42,12 @@ type Service struct {
 	q      dbsqlite.Querier
 	bus    *events.Bus
 	logger *slog.Logger
+	mm     *mediamanagement.Service
 }
 
 // NewService creates a new Service.
-func NewService(q dbsqlite.Querier, bus *events.Bus, logger *slog.Logger) *Service {
-	return &Service{q: q, bus: bus, logger: logger}
+func NewService(q dbsqlite.Querier, bus *events.Bus, logger *slog.Logger, mm *mediamanagement.Service) *Service {
+	return &Service{q: q, bus: bus, logger: logger, mm: mm}
 }
 
 // Subscribe registers the importer handler on the event bus.
@@ -107,19 +109,40 @@ func (s *Service) importFile(ctx context.Context, grabID, contentPath string) er
 		return fmt.Errorf("resolving source file from %q: %w", contentPath, err)
 	}
 
+	// ── Load media management settings ─────────────────────────────────────
+	mm, err := s.mm.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("loading media management settings: %w", err)
+	}
+
 	// ── Reconstruct quality + compute destination ──────────────────────────
 	q := qualityFromGrab(grab)
-	fileFormat := renamer.DefaultFileFormat
+
+	fileFormat := mm.StandardMovieFormat
 	if lib.NamingFormat != nil && *lib.NamingFormat != "" {
 		fileFormat = *lib.NamingFormat
 	}
+	folderFormat := mm.MovieFolderFormat
+	if lib.FolderFormat != nil && *lib.FolderFormat != "" {
+		folderFormat = *lib.FolderFormat
+	}
+
 	rm := renamer.Movie{
 		Title:         mov.Title,
 		OriginalTitle: mov.OriginalTitle,
 		Year:          int(mov.Year),
 	}
 	ext := filepath.Ext(srcPath)
-	destPath := renamer.DestPath(lib.RootPath, fileFormat, rm, q, ext)
+	colon := renamer.ColonReplacement(mm.ColonReplacement)
+
+	var destPath string
+	if !mm.RenameMovies {
+		destPath = filepath.Join(lib.RootPath,
+			renamer.FolderName(folderFormat, rm),
+			filepath.Base(srcPath))
+	} else {
+		destPath = renamer.DestPath(lib.RootPath, fileFormat, folderFormat, rm, q, colon, ext)
+	}
 
 	// ── Create destination directory ───────────────────────────────────────
 	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
@@ -129,6 +152,13 @@ func (s *Service) importFile(ctx context.Context, grabID, contentPath string) er
 	// ── Transfer the file (hardlink preferred, copy+delete as fallback) ────
 	if err := transferFile(srcPath, destPath); err != nil {
 		return fmt.Errorf("transferring file %q → %q: %w", srcPath, destPath, err)
+	}
+
+	// ── Copy extra files (subtitles, NFOs, etc.) ───────────────────────────
+	if mm.ImportExtraFiles && len(mm.ExtraFileExtensions) > 0 {
+		srcDir := filepath.Dir(srcPath)
+		destDir := filepath.Dir(destPath)
+		copyExtraFiles(s.logger, srcDir, destDir, mm.ExtraFileExtensions)
 	}
 
 	// ── Persist movie_file record ──────────────────────────────────────────
@@ -311,6 +341,41 @@ func transferFile(src, dst string) error {
 	}
 
 	return os.Remove(src)
+}
+
+// copyExtraFiles walks srcDir and hardlinks (or copies) any file whose
+// extension matches one of exts into destDir. Errors are logged but do not
+// abort the import.
+func copyExtraFiles(logger *slog.Logger, srcDir, destDir string, exts []string) {
+	extSet := make(map[string]bool, len(exts))
+	for _, e := range exts {
+		e = strings.TrimSpace(e)
+		if e != "" && e[0] != '.' {
+			e = "." + e
+		}
+		extSet[strings.ToLower(e)] = true
+	}
+
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		logger.Warn("extra files: cannot read source dir", "dir", srcDir, "error", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !extSet[strings.ToLower(filepath.Ext(name))] {
+			continue
+		}
+		src := filepath.Join(srcDir, name)
+		dst := filepath.Join(destDir, name)
+		if err := transferFile(src, dst); err != nil {
+			logger.Warn("extra files: transfer failed", "src", src, "dst", dst, "error", err)
+		}
+	}
 }
 
 // qualityFromGrab reconstructs a plugin.Quality from the denormalized fields

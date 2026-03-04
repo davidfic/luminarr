@@ -23,12 +23,12 @@ func (q *Queries) CountMoviesInLibrary(ctx context.Context, libraryID string) (i
 const createLibrary = `-- name: CreateLibrary :one
 INSERT INTO libraries (
     id, name, root_path, default_quality_profile_id,
-    naming_format, min_free_space_gb, tags_json, created_at, updated_at
+    naming_format, folder_format, min_free_space_gb, tags_json, created_at, updated_at
 ) VALUES (
     ?, ?, ?, ?,
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 )
-RETURNING id, name, root_path, default_quality_profile_id, naming_format, min_free_space_gb, tags_json, created_at, updated_at
+RETURNING id, name, root_path, default_quality_profile_id, naming_format, min_free_space_gb, tags_json, created_at, updated_at, folder_format
 `
 
 type CreateLibraryParams struct {
@@ -37,6 +37,7 @@ type CreateLibraryParams struct {
 	RootPath                string  `json:"rootPath"`
 	DefaultQualityProfileID string  `json:"defaultQualityProfileId"`
 	NamingFormat            *string `json:"namingFormat"`
+	FolderFormat            *string `json:"folderFormat"`
 	MinFreeSpaceGb          int64   `json:"minFreeSpaceGb"`
 	TagsJson                string  `json:"tagsJson"`
 	CreatedAt               string  `json:"createdAt"`
@@ -50,6 +51,7 @@ func (q *Queries) CreateLibrary(ctx context.Context, arg CreateLibraryParams) (L
 		arg.RootPath,
 		arg.DefaultQualityProfileID,
 		arg.NamingFormat,
+		arg.FolderFormat,
 		arg.MinFreeSpaceGb,
 		arg.TagsJson,
 		arg.CreatedAt,
@@ -66,6 +68,7 @@ func (q *Queries) CreateLibrary(ctx context.Context, arg CreateLibraryParams) (L
 		&i.TagsJson,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.FolderFormat,
 	)
 	return i, err
 }
@@ -80,7 +83,7 @@ func (q *Queries) DeleteLibrary(ctx context.Context, id string) error {
 }
 
 const getLibrary = `-- name: GetLibrary :one
-SELECT id, name, root_path, default_quality_profile_id, naming_format, min_free_space_gb, tags_json, created_at, updated_at FROM libraries WHERE id = ?
+SELECT id, name, root_path, default_quality_profile_id, naming_format, min_free_space_gb, tags_json, created_at, updated_at, folder_format FROM libraries WHERE id = ?
 `
 
 func (q *Queries) GetLibrary(ctx context.Context, id string) (Library, error) {
@@ -96,12 +99,13 @@ func (q *Queries) GetLibrary(ctx context.Context, id string) (Library, error) {
 		&i.TagsJson,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.FolderFormat,
 	)
 	return i, err
 }
 
 const listLibraries = `-- name: ListLibraries :many
-SELECT id, name, root_path, default_quality_profile_id, naming_format, min_free_space_gb, tags_json, created_at, updated_at FROM libraries ORDER BY name ASC
+SELECT id, name, root_path, default_quality_profile_id, naming_format, min_free_space_gb, tags_json, created_at, updated_at, folder_format FROM libraries ORDER BY name ASC
 `
 
 func (q *Queries) ListLibraries(ctx context.Context) ([]Library, error) {
@@ -123,6 +127,7 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]Library, error) {
 			&i.TagsJson,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.FolderFormat,
 		); err != nil {
 			return nil, err
 		}
@@ -143,11 +148,12 @@ UPDATE libraries SET
     root_path                   = ?,
     default_quality_profile_id  = ?,
     naming_format               = ?,
+    folder_format               = ?,
     min_free_space_gb           = ?,
     tags_json                   = ?,
     updated_at                  = ?
 WHERE id = ?
-RETURNING id, name, root_path, default_quality_profile_id, naming_format, min_free_space_gb, tags_json, created_at, updated_at
+RETURNING id, name, root_path, default_quality_profile_id, naming_format, min_free_space_gb, tags_json, created_at, updated_at, folder_format
 `
 
 type UpdateLibraryParams struct {
@@ -155,6 +161,7 @@ type UpdateLibraryParams struct {
 	RootPath                string  `json:"rootPath"`
 	DefaultQualityProfileID string  `json:"defaultQualityProfileId"`
 	NamingFormat            *string `json:"namingFormat"`
+	FolderFormat            *string `json:"folderFormat"`
 	MinFreeSpaceGb          int64   `json:"minFreeSpaceGb"`
 	TagsJson                string  `json:"tagsJson"`
 	UpdatedAt               string  `json:"updatedAt"`
@@ -167,6 +174,7 @@ func (q *Queries) UpdateLibrary(ctx context.Context, arg UpdateLibraryParams) (L
 		arg.RootPath,
 		arg.DefaultQualityProfileID,
 		arg.NamingFormat,
+		arg.FolderFormat,
 		arg.MinFreeSpaceGb,
 		arg.TagsJson,
 		arg.UpdatedAt,
@@ -183,6 +191,7 @@ func (q *Queries) UpdateLibrary(ctx context.Context, arg UpdateLibraryParams) (L
 		&i.TagsJson,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.FolderFormat,
 	)
 	return i, err
 }

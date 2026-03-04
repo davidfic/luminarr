@@ -1,10 +1,10 @@
 -- name: CreateLibrary :one
 INSERT INTO libraries (
     id, name, root_path, default_quality_profile_id,
-    naming_format, min_free_space_gb, tags_json, created_at, updated_at
+    naming_format, folder_format, min_free_space_gb, tags_json, created_at, updated_at
 ) VALUES (
     ?, ?, ?, ?,
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 )
 RETURNING *;
 
@@ -20,6 +20,7 @@ UPDATE libraries SET
     root_path                   = ?,
     default_quality_profile_id  = ?,
     naming_format               = ?,
+    folder_format               = ?,
     min_free_space_gb           = ?,
     tags_json                   = ?,
     updated_at                  = ?

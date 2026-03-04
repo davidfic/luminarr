@@ -14,9 +14,23 @@ import (
 // DefaultFileFormat is used when a library has no naming_format set.
 const DefaultFileFormat = "{Movie Title} ({Release Year}) {Quality Full}"
 
-// DefaultFolderFormat is the fixed folder name template.
-// Libraries may eventually allow overriding this; for now it is constant.
+// DefaultFolderFormat is used when a library has no folder_format set.
 const DefaultFolderFormat = "{Movie Title} ({Release Year})"
+
+// ColonReplacement controls how colons in movie titles are handled when
+// producing filesystem-safe filenames.
+type ColonReplacement string
+
+const (
+	// ColonDelete removes colons: "Batman: Begins" → "Batman Begins"
+	ColonDelete ColonReplacement = "delete"
+	// ColonDash replaces colons with a dash: "Batman: Begins" → "Batman- Begins"
+	ColonDash ColonReplacement = "dash"
+	// ColonSpaceDash replaces ": " with " - ": "Batman: Begins" → "Batman - Begins"
+	ColonSpaceDash ColonReplacement = "space-dash"
+	// ColonSmart uses space-dash when followed by a space, dash otherwise.
+	ColonSmart ColonReplacement = "smart"
+)
 
 // Movie holds the movie metadata the renamer needs.
 type Movie struct {
@@ -29,15 +43,20 @@ type Movie struct {
 // quality, and format string. Substitution variables:
 //
 //	{Movie Title}          → movie.Title
-//	{Movie CleanTitle}     → filesystem-safe version of movie.Title
+//	{Movie CleanTitle}     → filesystem-safe version of movie.Title (delete colon strategy)
 //	{Original Title}       → movie.OriginalTitle
 //	{Release Year}         → movie.Year
 //	{Quality Full}         → quality.Name  (e.g. "Bluray-1080p")
 //	{MediaInfo VideoCodec} → quality.Codec (e.g. "x265")
 func Apply(format string, m Movie, q plugin.Quality) string {
+	return ApplyWithOptions(format, m, q, ColonDelete)
+}
+
+// ApplyWithOptions is like Apply but allows specifying the colon replacement strategy.
+func ApplyWithOptions(format string, m Movie, q plugin.Quality, colon ColonReplacement) string {
 	r := strings.NewReplacer(
 		"{Movie Title}", m.Title,
-		"{Movie CleanTitle}", CleanTitle(m.Title),
+		"{Movie CleanTitle}", CleanTitleColon(m.Title, colon),
 		"{Original Title}", m.OriginalTitle,
 		"{Release Year}", yearStr(m.Year),
 		"{Quality Full}", q.Name,
@@ -47,17 +66,40 @@ func Apply(format string, m Movie, q plugin.Quality) string {
 	return sanitize(result)
 }
 
-// FolderName returns the library sub-directory name for a movie, using the
-// fixed DefaultFolderFormat.
-func FolderName(m Movie) string {
-	return Apply(DefaultFolderFormat, m, plugin.Quality{})
+// FolderName returns the library sub-directory name for a movie using the
+// given folder format template. Pass DefaultFolderFormat for the standard behaviour.
+func FolderName(format string, m Movie) string {
+	return Apply(format, m, plugin.Quality{})
+}
+
+// DestPath returns the absolute destination path for an imported file.
+//
+//	libraryRoot / FolderName(folderFormat, m) / ApplyWithOptions(fileFormat, m, q, colon) + ext
+func DestPath(libraryRoot, fileFormat, folderFormat string, m Movie, q plugin.Quality, colon ColonReplacement, sourceExt string) string {
+	folder := FolderName(folderFormat, m)
+	file := ApplyWithOptions(fileFormat, m, q, colon) + sourceExt
+	return filepath.Join(libraryRoot, folder, file)
 }
 
 // CleanTitle strips characters that are problematic on common filesystems
-// while preserving readability. Used for {Movie CleanTitle}.
+// while preserving readability. Colons are replaced with " - " (space-dash).
+// Used for {Movie CleanTitle} with the default space-dash strategy.
 func CleanTitle(title string) string {
-	// Replace : with - (common in movie titles like "Batman: Begins")
-	title = strings.ReplaceAll(title, ":", " -")
+	return CleanTitleColon(title, ColonSpaceDash)
+}
+
+// CleanTitleColon is like CleanTitle but applies the specified colon replacement.
+func CleanTitleColon(title string, colon ColonReplacement) string {
+	switch colon {
+	case ColonDash:
+		title = strings.ReplaceAll(title, ":", "-")
+	case ColonSpaceDash, ColonSmart:
+		// Replace ": " (colon-space) with " - "; bare ":" with "-"
+		title = strings.ReplaceAll(title, ": ", " - ")
+		title = strings.ReplaceAll(title, ":", "-")
+	default: // ColonDelete
+		title = strings.ReplaceAll(title, ":", " ")
+	}
 	// Remove characters invalid on most filesystems.
 	title = invalidCharsRe.ReplaceAllString(title, "")
 	// Collapse multiple spaces.
@@ -73,15 +115,6 @@ func sanitize(s string) string {
 	s = strings.NewReplacer("/", "", "\x00", "").Replace(s)
 	s = multiSpaceRe.ReplaceAllString(s, " ")
 	return strings.TrimSpace(s)
-}
-
-// DestPath returns the absolute destination path for an imported file.
-//
-//	libraryRoot / FolderName(m) / Apply(fileFormat, m, q) + ext
-func DestPath(libraryRoot, fileFormat string, m Movie, q plugin.Quality, sourceExt string) string {
-	folder := FolderName(m)
-	file := Apply(fileFormat, m, q) + sourceExt
-	return filepath.Join(libraryRoot, folder, file)
 }
 
 func yearStr(y int) string {

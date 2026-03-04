@@ -37,6 +37,7 @@ type Querier interface {
 	GetGrabByID(ctx context.Context, id string) (GrabHistory, error)
 	GetIndexerConfig(ctx context.Context, id string) (IndexerConfig, error)
 	GetLibrary(ctx context.Context, id string) (Library, error)
+	GetMediaManagement(ctx context.Context) (MediaManagement, error)
 	GetMovie(ctx context.Context, id string) (Movie, error)
 	GetMovieByTMDBID(ctx context.Context, tmdbID int64) (Movie, error)
 	GetMovieFile(ctx context.Context, id string) (MovieFile, error)
@@ -73,6 +74,7 @@ type Querier interface {
 	UpdateGrabStatus(ctx context.Context, arg UpdateGrabStatusParams) error
 	UpdateIndexerConfig(ctx context.Context, arg UpdateIndexerConfigParams) (IndexerConfig, error)
 	UpdateLibrary(ctx context.Context, arg UpdateLibraryParams) (Library, error)
+	UpdateMediaManagement(ctx context.Context, arg UpdateMediaManagementParams) (MediaManagement, error)
 	UpdateMovie(ctx context.Context, arg UpdateMovieParams) (Movie, error)
 	UpdateMovieFileIndexed(ctx context.Context, arg UpdateMovieFileIndexedParams) error
 	UpdateMovieMetadataRefreshed(ctx context.Context, arg UpdateMovieMetadataRefreshedParams) error

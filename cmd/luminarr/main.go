@@ -21,6 +21,7 @@ import (
 	"github.com/davidfic/luminarr/internal/core/importer"
 	"github.com/davidfic/luminarr/internal/core/indexer"
 	"github.com/davidfic/luminarr/internal/core/library"
+	"github.com/davidfic/luminarr/internal/core/mediamanagement"
 	"github.com/davidfic/luminarr/internal/core/movie"
 	"github.com/davidfic/luminarr/internal/core/notification"
 	"github.com/davidfic/luminarr/internal/core/quality"
@@ -224,7 +225,9 @@ func run() error {
 	downloaderSvc := downloader.NewService(queries, registry.Default, bus)
 	queueSvc := queue.NewService(queries, downloaderSvc, bus, logger)
 
-	importerSvc := importer.NewService(queries, bus, logger)
+	mmSvc := mediamanagement.NewService(queries)
+
+	importerSvc := importer.NewService(queries, bus, logger, mmSvc)
 	importerSvc.Subscribe()
 
 	notifSvc := notification.NewService(queries, registry.Default)
@@ -264,6 +267,7 @@ func run() error {
 		Scheduler:                sched,
 		NotificationService:      notifSvc,
 		HealthService:            healthSvc,
+		MediaManagementService:   mmSvc,
 		RadarrImportService:      radarrImportSvc,
 		WSHub:                    wsHub,
 	})

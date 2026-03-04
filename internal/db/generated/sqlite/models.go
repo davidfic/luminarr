@@ -71,6 +71,18 @@ type Library struct {
 	TagsJson                string  `json:"tagsJson"`
 	CreatedAt               string  `json:"createdAt"`
 	UpdatedAt               string  `json:"updatedAt"`
+	FolderFormat            *string `json:"folderFormat"`
+}
+
+type MediaManagement struct {
+	ID                     int64  `json:"id"`
+	RenameMovies           int64  `json:"renameMovies"`
+	StandardMovieFormat    string `json:"standardMovieFormat"`
+	MovieFolderFormat      string `json:"movieFolderFormat"`
+	ColonReplacement       string `json:"colonReplacement"`
+	ImportExtraFiles       int64  `json:"importExtraFiles"`
+	ExtraFileExtensions    string `json:"extraFileExtensions"`
+	UnmonitorDeletedMovies int64  `json:"unmonitorDeletedMovies"`
 }
 
 type Movie struct {

@@ -21,6 +21,7 @@ import (
 	"github.com/davidfic/luminarr/internal/core/health"
 	"github.com/davidfic/luminarr/internal/core/indexer"
 	"github.com/davidfic/luminarr/internal/core/library"
+	"github.com/davidfic/luminarr/internal/core/mediamanagement"
 	"github.com/davidfic/luminarr/internal/core/movie"
 	"github.com/davidfic/luminarr/internal/core/notification"
 	"github.com/davidfic/luminarr/internal/core/quality"
@@ -52,6 +53,7 @@ type RouterConfig struct {
 	Scheduler                *scheduler.Scheduler
 	NotificationService      *notification.Service
 	HealthService            *health.Service
+	MediaManagementService   *mediamanagement.Service
 	RadarrImportService      *radarrimport.Service
 	WSHub                    *ws.Hub
 }
@@ -184,6 +186,10 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	if cfg.HealthService != nil {
 		v1.RegisterHealthRoutes(humaAPI, cfg.HealthService)
+	}
+
+	if cfg.MediaManagementService != nil {
+		v1.RegisterMediaManagementRoutes(humaAPI, cfg.MediaManagementService)
 	}
 
 	if cfg.RadarrImportService != nil {

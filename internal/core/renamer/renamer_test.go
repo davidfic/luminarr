@@ -77,7 +77,7 @@ func TestCleanTitle(t *testing.T) {
 }
 
 func TestFolderName(t *testing.T) {
-	got := renamer.FolderName(testMovie)
+	got := renamer.FolderName(renamer.DefaultFolderFormat, testMovie)
 	want := "Inception (2010)"
 	if got != want {
 		t.Errorf("FolderName = %q, want %q", got, want)
@@ -85,7 +85,7 @@ func TestFolderName(t *testing.T) {
 }
 
 func TestDestPath(t *testing.T) {
-	got := renamer.DestPath("/mnt/movies", renamer.DefaultFileFormat, testMovie, testQuality, ".mkv")
+	got := renamer.DestPath("/mnt/movies", renamer.DefaultFileFormat, renamer.DefaultFolderFormat, testMovie, testQuality, renamer.ColonSpaceDash, ".mkv")
 	want := "/mnt/movies/Inception (2010)/Inception (2010) Bluray-1080p.mkv"
 	if got != want {
 		t.Errorf("DestPath = %q, want %q", got, want)
