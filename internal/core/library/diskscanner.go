@@ -33,8 +33,11 @@ var yearRe = regexp.MustCompile(`\b(19\d{2}|20\d{2})\b`)
 func scanDisk(root string, knownPaths map[string]bool) ([]DiskFile, error) {
 	var files []DiskFile
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
+		if err != nil {
+			return nil //nolint:nilerr // skip unreadable entries and continue the walk
+		}
+		if d.IsDir() {
+			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(path))
 		if !videoExtensions[ext] || knownPaths[path] {
