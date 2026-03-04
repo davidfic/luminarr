@@ -364,6 +364,47 @@ func (s *Service) AddUnmatched(ctx context.Context, req AddUnmatchedRequest) (Mo
 	return m, nil
 }
 
+// MatchToTMDB associates an existing unmatched movie record with a TMDB entry.
+// It updates the movie's tmdb_id and then refreshes all metadata fields from
+// TMDB in a single step. Returns ErrAlreadyExists if another movie in the
+// library already owns the supplied tmdbID. Returns ErrTMDBNotConfigured when
+// no metadata provider is wired up.
+func (s *Service) MatchToTMDB(ctx context.Context, movieID string, tmdbID int) (Movie, error) {
+	meta := s.provider()
+	if meta == nil {
+		return Movie{}, ErrTMDBNotConfigured
+	}
+
+	// Ensure the target movie exists.
+	if _, err := s.q.GetMovie(ctx, movieID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Movie{}, ErrNotFound
+		}
+		return Movie{}, fmt.Errorf("fetching movie %q: %w", movieID, err)
+	}
+
+	// Check that no other movie already owns this TMDB ID.
+	dup, err := s.q.GetMovieByTMDBID(ctx, int64(tmdbID))
+	if err == nil && dup.ID != movieID {
+		return Movie{}, ErrAlreadyExists
+	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return Movie{}, fmt.Errorf("checking for duplicate tmdb_id %d: %w", tmdbID, err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	if err := s.q.UpdateMovieTMDBID(ctx, dbsqlite.UpdateMovieTMDBIDParams{
+		TmdbID:    int64(tmdbID),
+		UpdatedAt: now,
+		ID:        movieID,
+	}); err != nil {
+		return Movie{}, fmt.Errorf("updating tmdb_id for movie %q: %w", movieID, err)
+	}
+
+	// RefreshMetadata reads the updated tmdb_id from the DB and fetches full
+	// metadata from TMDB.
+	return s.RefreshMetadata(ctx, movieID)
+}
+
 // Get returns a single movie by its internal UUID.
 // Returns ErrNotFound if no movie with that ID exists.
 func (s *Service) Get(ctx context.Context, id string) (Movie, error) {

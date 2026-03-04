@@ -64,6 +64,9 @@ UPDATE movies SET
 WHERE id = ?
 RETURNING *;
 
+-- name: UpdateMovieTMDBID :exec
+UPDATE movies SET tmdb_id = ?, updated_at = ? WHERE id = ?;
+
 -- name: UpdateMovieStatus :one
 UPDATE movies SET status = ?, updated_at = ? WHERE id = ? RETURNING *;
 

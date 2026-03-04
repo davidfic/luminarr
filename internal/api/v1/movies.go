@@ -156,6 +156,13 @@ type refreshMovieInput struct {
 	ID string `path:"id"`
 }
 
+type matchMovieInput struct {
+	ID   string `path:"id"`
+	Body struct {
+		TMDBID int `json:"tmdb_id" doc:"TMDB movie ID to associate with this record"`
+	}
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func movieToBody(m movie.Movie) *movieBody {
@@ -367,6 +374,31 @@ func RegisterMovieRoutes(api huma.API, svc *movie.Service) {
 			return nil, huma.NewError(http.StatusInternalServerError, "failed to refresh metadata", err)
 		}
 		return &movieRefreshOutput{Body: &movieRefreshBody{Message: "metadata refresh queued"}}, nil
+	})
+
+	// POST /api/v1/movies/{id}/match
+	huma.Register(api, huma.Operation{
+		OperationID: "match-movie-tmdb",
+		Method:      http.MethodPost,
+		Path:        "/api/v1/movies/{id}/match",
+		Summary:     "Associate an unmatched movie with a TMDB entry",
+		Description: "Sets the movie's TMDB ID and immediately fetches full metadata from TMDB.",
+		Tags:        []string{"Movies"},
+	}, func(ctx context.Context, input *matchMovieInput) (*movieOutput, error) {
+		m, err := svc.MatchToTMDB(ctx, input.ID, input.Body.TMDBID)
+		if err != nil {
+			if errors.Is(err, movie.ErrNotFound) {
+				return nil, huma.Error404NotFound("movie not found")
+			}
+			if errors.Is(err, movie.ErrAlreadyExists) {
+				return nil, huma.Error409Conflict("another movie already has that TMDB ID")
+			}
+			if errors.Is(err, movie.ErrTMDBNotConfigured) {
+				return nil, huma.NewError(http.StatusServiceUnavailable, "TMDB API key not configured")
+			}
+			return nil, huma.NewError(http.StatusInternalServerError, "failed to match movie", err)
+		}
+		return &movieOutput{Body: movieToBody(m)}, nil
 	})
 }
 

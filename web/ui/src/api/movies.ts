@@ -151,6 +151,19 @@ export function useDeleteMovieFile(movieId: string) {
   });
 }
 
+export function useMatchMovie() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, tmdb_id }: { id: string; tmdb_id: number }) =>
+      apiFetch<Movie>(`/movies/${id}/match`, { method: "POST", body: JSON.stringify({ tmdb_id }) }),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ["movies"] });
+      qc.invalidateQueries({ queryKey: ["movies", id] });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+}
+
 export function useMovieHistory(movieId: string) {
   return useQuery({
     queryKey: ["movies", movieId, "history"],

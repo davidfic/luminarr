@@ -900,3 +900,18 @@ func (q *Queries) UpdateMovieStatus(ctx context.Context, arg UpdateMovieStatusPa
 	)
 	return i, err
 }
+
+const updateMovieTMDBID = `-- name: UpdateMovieTMDBID :exec
+UPDATE movies SET tmdb_id = ?, updated_at = ? WHERE id = ?
+`
+
+type UpdateMovieTMDBIDParams struct {
+	TmdbID    int64  `json:"tmdbId"`
+	UpdatedAt string `json:"updatedAt"`
+	ID        string `json:"id"`
+}
+
+func (q *Queries) UpdateMovieTMDBID(ctx context.Context, arg UpdateMovieTMDBIDParams) error {
+	_, err := q.db.ExecContext(ctx, updateMovieTMDBID, arg.TmdbID, arg.UpdatedAt, arg.ID)
+	return err
+}

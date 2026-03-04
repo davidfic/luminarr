@@ -76,6 +76,7 @@ type Querier interface {
 	UpdateMovieMetadataRefreshed(ctx context.Context, arg UpdateMovieMetadataRefreshedParams) error
 	UpdateMoviePath(ctx context.Context, arg UpdateMoviePathParams) (Movie, error)
 	UpdateMovieStatus(ctx context.Context, arg UpdateMovieStatusParams) (Movie, error)
+	UpdateMovieTMDBID(ctx context.Context, arg UpdateMovieTMDBIDParams) error
 	UpdateNotificationConfig(ctx context.Context, arg UpdateNotificationConfigParams) (NotificationConfig, error)
 	UpdateQualityProfile(ctx context.Context, arg UpdateQualityProfileParams) (QualityProfile, error)
 }
