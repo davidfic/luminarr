@@ -345,6 +345,44 @@ func RegisterLibraryRoutes(api huma.API, svc *library.Service, movieSvc *movie.S
 		return &libraryDiskScanOutput{Body: bodies}, nil
 	})
 
+	// GET /api/v1/libraries/{id}/candidates
+	// Returns candidates stored in the DB without re-walking the disk.
+	huma.Register(api, huma.Operation{
+		OperationID: "library-candidates",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/libraries/{id}/candidates",
+		Summary:     "List pre-scanned file candidates",
+		Description: "Returns video files previously discovered by a disk scan, with their stored TMDB matches. Does not re-walk the disk.",
+		Tags:        []string{"Libraries"},
+	}, func(ctx context.Context, input *libraryDiskScanInput) (*libraryDiskScanOutput, error) {
+		files, err := svc.ListCandidates(ctx, input.ID)
+		if err != nil {
+			if errors.Is(err, library.ErrNotFound) {
+				return nil, huma.Error404NotFound("library not found")
+			}
+			return nil, huma.NewError(http.StatusInternalServerError, "failed to list candidates", err)
+		}
+		bodies := make([]*diskFileBody, len(files))
+		for i, f := range files {
+			b := &diskFileBody{
+				Path:        f.Path,
+				SizeBytes:   f.SizeBytes,
+				ParsedTitle: f.ParsedTitle,
+				ParsedYear:  f.ParsedYear,
+			}
+			if f.TMDBMatch != nil {
+				b.TMDBMatch = &tmdbMatchBody{
+					TMDBID:        f.TMDBMatch.TMDBID,
+					Title:         f.TMDBMatch.Title,
+					OriginalTitle: f.TMDBMatch.OriginalTitle,
+					Year:          f.TMDBMatch.Year,
+				}
+			}
+			bodies[i] = b
+		}
+		return &libraryDiskScanOutput{Body: bodies}, nil
+	})
+
 	if movieSvc == nil {
 		return
 	}

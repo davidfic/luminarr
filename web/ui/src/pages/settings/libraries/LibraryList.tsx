@@ -5,7 +5,8 @@ import {
   useUpdateLibrary,
   useDeleteLibrary,
   useScanLibrary,
-  useDiskScan,
+  useCandidates,
+  useRescanDisk,
   useImportFile,
 } from "@/api/libraries";
 import { useLookupMovies } from "@/api/movies";
@@ -419,7 +420,8 @@ interface DiskScanModalProps {
 }
 
 function DiskScanModal({ library, onClose }: DiskScanModalProps) {
-  const { data: diskFiles, isLoading, error: scanError } = useDiskScan(library.id);
+  const { data: diskFiles, isLoading, error: scanError } = useCandidates(library.id);
+  const rescan = useRescanDisk();
   const lookupMovies = useLookupMovies();
   const importFile = useImportFile();
   const autoMatchRef = useRef(false);
@@ -671,12 +673,21 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
         >
           {/* Stats */}
           <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-            {isLoading ? "Scanning…" : `${allRows.length} file${allRows.length !== 1 ? "s" : ""} found`}
+            {isLoading ? "Loading…" : rescan.isPending ? "Scanning disk…" : `${allRows.length} file${allRows.length !== 1 ? "s" : ""} found`}
             {matched.length > 0 && ` · ${matched.length} matched`}
             {selected.length > 0 && ` · ${selected.length} selected`}
           </span>
 
           <div style={{ flex: 1 }} />
+
+          {/* Rescan button */}
+          <button
+            onClick={() => rescan.mutate(library.id)}
+            disabled={rescan.isPending || isImporting}
+            style={smallBtn("var(--color-text-secondary)", "var(--color-bg-elevated)")}
+          >
+            {rescan.isPending ? "Scanning…" : "Rescan disk"}
+          </button>
 
           {/* Show unmatched toggle */}
           <label
@@ -725,11 +736,11 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
           ) : displayRows.length === 0 ? (
             <div style={{ padding: 48, textAlign: "center" }}>
               <p style={{ margin: 0, fontSize: 14, color: "var(--color-text-secondary)", fontWeight: 500 }}>
-                {allRows.length === 0 ? "No untracked video files found" : "No matched files to show"}
+                {allRows.length === 0 ? "No candidates found" : "No matched files to show"}
               </p>
               <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--color-text-muted)" }}>
                 {allRows.length === 0
-                  ? "All video files in this library are already tracked."
+                  ? "Click \"Rescan disk\" to discover untracked video files."
                   : "Use the toggle above to show unmatched files."}
               </p>
             </div>

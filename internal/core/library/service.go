@@ -404,6 +404,35 @@ func normalizeCandidateTitle(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
 
+// ListCandidates returns all file candidates for a library from the database
+// without walking the disk. This is the fast path used by the import modal;
+// callers that need a fresh disk walk should use ScanDisk instead.
+func (s *Service) ListCandidates(ctx context.Context, libraryID string) ([]DiskFile, error) {
+	rows, err := s.q.ListLibraryFileCandidates(ctx, libraryID)
+	if err != nil {
+		return nil, fmt.Errorf("listing candidates for library %q: %w", libraryID, err)
+	}
+	files := make([]DiskFile, 0, len(rows))
+	for _, c := range rows {
+		f := DiskFile{
+			Path:        c.FilePath,
+			SizeBytes:   c.FileSize,
+			ParsedTitle: c.ParsedTitle,
+			ParsedYear:  int(c.ParsedYear),
+		}
+		if c.TmdbID > 0 {
+			f.TMDBMatch = &DiskFileTMDBMatch{
+				TMDBID:        int(c.TmdbID),
+				Title:         c.TmdbTitle,
+				OriginalTitle: c.TmdbOriginalTitle,
+				Year:          int(c.TmdbYear),
+			}
+		}
+		files = append(files, f)
+	}
+	return files, nil
+}
+
 // DeleteCandidate removes a file from the candidate table after it has been
 // imported. It is a best-effort call — errors are intentionally ignored.
 func (s *Service) DeleteCandidate(ctx context.Context, libraryID, filePath string) error {

@@ -74,6 +74,29 @@ export function useDiskScan(libraryId: string) {
   });
 }
 
+// Fast path: reads candidates from the DB without walking disk.
+export function useCandidates(libraryId: string) {
+  return useQuery({
+    queryKey: ["libraries", libraryId, "candidates"],
+    queryFn: () => apiFetch<DiskFile[]>(`/libraries/${libraryId}/candidates`),
+    enabled: !!libraryId,
+    staleTime: 30_000,
+  });
+}
+
+// Walks the disk, upserts candidates, then invalidates the candidates cache.
+export function useRescanDisk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (libraryId: string) =>
+      apiFetch<DiskFile[]>(`/libraries/${libraryId}/disk-scan`),
+    onSuccess: (_data, libraryId) => {
+      qc.invalidateQueries({ queryKey: ["libraries", libraryId, "candidates"] });
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+}
+
 export function useImportFile() {
   const qc = useQueryClient();
   return useMutation({
