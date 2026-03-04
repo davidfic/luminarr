@@ -150,3 +150,11 @@ export function useDeleteMovieFile(movieId: string) {
     },
   });
 }
+
+export function useMovieHistory(movieId: string) {
+  return useQuery({
+    queryKey: ["movies", movieId, "history"],
+    queryFn: () => apiFetch<GrabHistory[]>(`/movies/${movieId}/history`),
+    enabled: !!movieId,
+  });
+}

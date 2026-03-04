@@ -30,7 +30,8 @@ type historyListOutput struct {
 	Body []*historyItemBody
 }
 
-// RegisterHistoryRoutes registers the global grab history endpoint.
+// RegisterHistoryRoutes registers the global grab history endpoint and the
+// per-movie grab history endpoint.
 func RegisterHistoryRoutes(api huma.API, svc *indexer.Service) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-history",
@@ -46,6 +47,39 @@ func RegisterHistoryRoutes(api huma.API, svc *indexer.Service) {
 		rows, err := svc.ListHistory(ctx, limit)
 		if err != nil {
 			return nil, huma.NewError(http.StatusInternalServerError, "failed to list history", err)
+		}
+		items := make([]*historyItemBody, len(rows))
+		for i, r := range rows {
+			grabbedAt, _ := time.Parse(time.RFC3339, r.GrabbedAt)
+			items[i] = &historyItemBody{
+				ID:                r.ID,
+				MovieID:           r.MovieID,
+				ReleaseTitle:      r.ReleaseTitle,
+				ReleaseSource:     r.ReleaseSource,
+				ReleaseResolution: r.ReleaseResolution,
+				Protocol:          r.Protocol,
+				Size:              r.Size,
+				DownloadStatus:    r.DownloadStatus,
+				GrabbedAt:         grabbedAt,
+			}
+		}
+		return &historyListOutput{Body: items}, nil
+	})
+
+	type movieHistoryInput struct {
+		ID string `path:"id"`
+	}
+
+	huma.Register(api, huma.Operation{
+		OperationID: "list-movie-history",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/movies/{id}/history",
+		Summary:     "List grab history for a specific movie",
+		Tags:        []string{"History"},
+	}, func(ctx context.Context, input *movieHistoryInput) (*historyListOutput, error) {
+		rows, err := svc.GrabHistory(ctx, input.ID)
+		if err != nil {
+			return nil, huma.NewError(http.StatusInternalServerError, "failed to list movie history", err)
 		}
 		items := make([]*historyItemBody, len(rows))
 		for i, r := range rows {
