@@ -271,6 +271,18 @@ export interface TestResult {
   message?: string;
 }
 
+// ── Movie files ────────────────────────────────────────────────────────────
+
+export interface MovieFile {
+  id: string;
+  movie_id: string;
+  path: string;
+  size_bytes: number;
+  quality: Quality;
+  edition?: string;
+  imported_at: string;
+}
+
 // ── Blocklist ──────────────────────────────────────────────────────────────
 
 export interface BlocklistEntry {

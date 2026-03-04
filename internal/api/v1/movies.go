@@ -12,6 +12,29 @@ import (
 	"github.com/davidfic/luminarr/internal/metadata/tmdb"
 )
 
+// ── Movie file shapes ─────────────────────────────────────────────────────────
+
+type movieFileBody struct {
+	ID         string    `json:"id"`
+	MovieID    string    `json:"movie_id"`
+	Path       string    `json:"path"`
+	SizeBytes  int64     `json:"size_bytes"`
+	Quality    any       `json:"quality"`
+	Edition    string    `json:"edition,omitempty"`
+	ImportedAt time.Time `json:"imported_at"`
+}
+
+type movieFilesListOutput struct {
+	Body []*movieFileBody
+}
+
+type movieFileDeleteInput struct {
+	ID     string `path:"id"`
+	FileID string `path:"fileId"`
+	// DeleteFromDisk instructs the server to also remove the file on disk.
+	DeleteFromDisk bool `query:"delete_from_disk"`
+}
+
 // ── Request / response shapes ────────────────────────────────────────────────
 
 type movieBody struct {
@@ -342,5 +365,59 @@ func RegisterMovieRoutes(api huma.API, svc *movie.Service) {
 			return nil, huma.NewError(http.StatusInternalServerError, "failed to refresh metadata", err)
 		}
 		return &movieRefreshOutput{Body: &movieRefreshBody{Message: "metadata refresh queued"}}, nil
+	})
+}
+
+// RegisterMovieFileRoutes registers file management endpoints for a movie.
+func RegisterMovieFileRoutes(api huma.API, svc *movie.Service) {
+	// GET /api/v1/movies/{id}/files
+	huma.Register(api, huma.Operation{
+		OperationID: "list-movie-files",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/movies/{id}/files",
+		Summary:     "List files associated with a movie",
+		Tags:        []string{"Movies"},
+	}, func(ctx context.Context, input *getMovieInput) (*movieFilesListOutput, error) {
+		if _, err := svc.Get(ctx, input.ID); err != nil {
+			if errors.Is(err, movie.ErrNotFound) {
+				return nil, huma.Error404NotFound("movie not found")
+			}
+			return nil, huma.NewError(http.StatusInternalServerError, "failed to get movie", err)
+		}
+		files, err := svc.ListFiles(ctx, input.ID)
+		if err != nil {
+			return nil, huma.NewError(http.StatusInternalServerError, "failed to list files", err)
+		}
+		bodies := make([]*movieFileBody, len(files))
+		for i, f := range files {
+			bodies[i] = &movieFileBody{
+				ID:         f.ID,
+				MovieID:    f.MovieID,
+				Path:       f.Path,
+				SizeBytes:  f.SizeBytes,
+				Quality:    f.Quality,
+				Edition:    f.Edition,
+				ImportedAt: f.ImportedAt,
+			}
+		}
+		return &movieFilesListOutput{Body: bodies}, nil
+	})
+
+	// DELETE /api/v1/movies/{id}/files/{fileId}
+	huma.Register(api, huma.Operation{
+		OperationID:   "delete-movie-file",
+		Method:        http.MethodDelete,
+		Path:          "/api/v1/movies/{id}/files/{fileId}",
+		Summary:       "Delete a movie file record, optionally removing it from disk",
+		Tags:          []string{"Movies"},
+		DefaultStatus: http.StatusNoContent,
+	}, func(ctx context.Context, input *movieFileDeleteInput) (*struct{}, error) {
+		if err := svc.DeleteFile(ctx, input.FileID, input.DeleteFromDisk); err != nil {
+			if errors.Is(err, movie.ErrFileNotFound) {
+				return nil, huma.Error404NotFound("movie file not found")
+			}
+			return nil, huma.NewError(http.StatusInternalServerError, "failed to delete movie file", err)
+		}
+		return nil, nil
 	})
 }

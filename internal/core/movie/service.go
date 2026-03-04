@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -26,6 +27,7 @@ var (
 	ErrNotFound          = errors.New("movie not found")
 	ErrAlreadyExists     = errors.New("movie already in library")
 	ErrTMDBNotConfigured = errors.New("TMDB API key not configured")
+	ErrFileNotFound      = errors.New("movie file not found")
 )
 
 // MetadataProvider fetches movie metadata from an external source.
@@ -597,6 +599,88 @@ func (s *Service) GetByTMDBID(ctx context.Context, tmdbID int) (Movie, error) {
 	return rowToMovie(row)
 }
 
+// FileInfo is the domain representation of a movie_files record.
+type FileInfo struct {
+	ID         string
+	MovieID    string
+	Path       string
+	SizeBytes  int64
+	Quality    plugin.Quality
+	Edition    string
+	ImportedAt time.Time
+	IndexedAt  time.Time
+}
+
+// ListFiles returns all file records for a movie, newest import first.
+func (s *Service) ListFiles(ctx context.Context, movieID string) ([]FileInfo, error) {
+	rows, err := s.q.ListMovieFiles(ctx, movieID)
+	if err != nil {
+		return nil, fmt.Errorf("listing files for movie %q: %w", movieID, err)
+	}
+	files := make([]FileInfo, 0, len(rows))
+	for _, row := range rows {
+		fi, err := rowToFileInfo(row)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, fi)
+	}
+	return files, nil
+}
+
+// DeleteFile removes the movie_files record identified by fileID.
+// If deleteFromDisk is true, the file at the stored path is also removed from
+// disk (errors are logged but do not fail the operation).
+// After the DB record is removed, if no files remain for the movie, the movie's
+// path is cleared and its status is reset to "wanted".
+func (s *Service) DeleteFile(ctx context.Context, fileID string, deleteFromDisk bool) error {
+	row, err := s.q.GetMovieFile(ctx, fileID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrFileNotFound
+		}
+		return fmt.Errorf("fetching movie file %q: %w", fileID, err)
+	}
+
+	if deleteFromDisk {
+		if removeErr := os.Remove(row.Path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			s.logger.WarnContext(ctx, "failed to delete movie file from disk",
+				slog.String("path", row.Path),
+				slog.Any("error", removeErr),
+			)
+		}
+	}
+
+	if err := s.q.DeleteMovieFile(ctx, fileID); err != nil {
+		return fmt.Errorf("deleting movie file record %q: %w", fileID, err)
+	}
+
+	// Reset movie status if no files remain.
+	remaining, err := s.q.ListMovieFiles(ctx, row.MovieID)
+	if err != nil {
+		return fmt.Errorf("listing remaining files for movie %q: %w", row.MovieID, err)
+	}
+	if len(remaining) == 0 {
+		now := time.Now().UTC().Format(time.RFC3339)
+		if _, err := s.q.UpdateMoviePath(ctx, dbsqlite.UpdateMoviePathParams{
+			Path:      nil,
+			UpdatedAt: now,
+			ID:        row.MovieID,
+		}); err != nil {
+			return fmt.Errorf("clearing path for movie %q: %w", row.MovieID, err)
+		}
+		if _, err := s.q.UpdateMovieStatus(ctx, dbsqlite.UpdateMovieStatusParams{
+			Status:    "wanted",
+			UpdatedAt: now,
+			ID:        row.MovieID,
+		}); err != nil {
+			return fmt.Errorf("resetting status for movie %q: %w", row.MovieID, err)
+		}
+	}
+
+	return nil
+}
+
 // AttachFile links a file on disk to an existing movie record. It sets
 // movies.path to the file's parent directory, creates a movie_file record,
 // and marks the movie status as "downloaded".
@@ -670,6 +754,40 @@ func tmdbImageURL(path, size string) string {
 		path = "/" + path
 	}
 	return "https://image.tmdb.org/t/p/" + size + path
+}
+
+// rowToFileInfo converts a DB movie_files row into the FileInfo domain type.
+func rowToFileInfo(row dbsqlite.MovieFile) (FileInfo, error) {
+	var qual plugin.Quality
+	if err := json.Unmarshal([]byte(row.QualityJson), &qual); err != nil {
+		// Non-fatal: return zero Quality if JSON is malformed.
+		qual = plugin.Quality{}
+	}
+
+	importedAt, err := time.Parse(time.RFC3339, row.ImportedAt)
+	if err != nil {
+		importedAt = time.Time{}
+	}
+	indexedAt, err := time.Parse(time.RFC3339, row.IndexedAt)
+	if err != nil {
+		indexedAt = time.Time{}
+	}
+
+	edition := ""
+	if row.Edition != nil {
+		edition = *row.Edition
+	}
+
+	return FileInfo{
+		ID:         row.ID,
+		MovieID:    row.MovieID,
+		Path:       row.Path,
+		SizeBytes:  row.SizeBytes,
+		Quality:    qual,
+		Edition:    edition,
+		ImportedAt: importedAt,
+		IndexedAt:  indexedAt,
+	}, nil
 }
 
 // rowToMovie converts a DB row into the domain Movie type.

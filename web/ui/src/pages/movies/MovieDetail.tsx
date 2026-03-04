@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   useMovie,
   useMovieReleases,
@@ -7,6 +9,8 @@ import {
   useDeleteMovie,
   useUpdateMovie,
   useRefreshMovie,
+  useMovieFiles,
+  useDeleteMovieFile,
   type GrabReleaseRequest,
 } from "@/api/movies";
 import type { Release } from "@/types";
@@ -252,6 +256,151 @@ function ReleaseRow({ release, grabbed, grabError, onGrab, isPending }: ReleaseR
   );
 }
 
+// ── Files tab ──────────────────────────────────────────────────────────────────
+
+function FilesTab({ movieId }: { movieId: string }) {
+  const { data: files, isLoading, error } = useMovieFiles(movieId);
+  const deleteFile = useDeleteMovieFile(movieId);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(fileId: string, deleteFromDisk: boolean) {
+    setDeletingId(fileId);
+    try {
+      await deleteFile.mutateAsync({ fileId, deleteFromDisk });
+      toast.success(deleteFromDisk ? "File deleted from disk" : "File record removed");
+    } catch {
+      toast.error("Failed to delete file");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0" }}>
+        {[1, 2].map((i) => (
+          <div key={i} className="skeleton" style={{ height: 56, borderRadius: 6 }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p style={{ fontSize: 13, color: "var(--color-danger)", margin: 0 }}>
+        Failed to load files: {(error as Error).message}
+      </p>
+    );
+  }
+
+  if (!files?.length) {
+    return (
+      <div style={{ padding: "32px 0", textAlign: "center" }}>
+        <p style={{ margin: 0, fontSize: 14, color: "var(--color-text-secondary)", fontWeight: 500 }}>
+          No files
+        </p>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--color-text-muted)" }}>
+          No files are associated with this movie yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {files.map((file) => (
+        <div
+          key={file.id}
+          style={{
+            background: "var(--color-bg-elevated)",
+            border: "1px solid var(--color-border-subtle)",
+            borderRadius: 6,
+            padding: "12px 14px",
+          }}
+        >
+          {/* Path */}
+          <div
+            style={{
+              fontSize: 12,
+              fontFamily: "var(--font-family-mono)",
+              color: "var(--color-text-secondary)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              marginBottom: 6,
+            }}
+            title={file.path}
+          >
+            {file.path}
+          </div>
+
+          {/* Meta row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+              {formatBytes(file.size_bytes)}
+            </span>
+            {file.quality?.resolution && (
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "1px 6px",
+                  borderRadius: 4,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  background: "color-mix(in srgb, var(--color-accent) 12%, transparent)",
+                  color: "var(--color-accent)",
+                }}
+              >
+                {[file.quality.resolution, file.quality.source].filter(Boolean).join(" ")}
+              </span>
+            )}
+            {file.edition && (
+              <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{file.edition}</span>
+            )}
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)", marginLeft: "auto" }}>
+              Imported {new Date(file.imported_at).toLocaleDateString()}
+            </span>
+
+            {/* Delete */}
+            <button
+              onClick={() => {
+                const fromDisk = confirm(
+                  "Also delete the file from disk?\n\nOK = delete from disk\nCancel = remove record only"
+                );
+                handleDelete(file.id, fromDisk);
+              }}
+              disabled={deletingId === file.id}
+              title="Delete file"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--color-text-muted)",
+                display: "flex",
+                alignItems: "center",
+                padding: 4,
+                borderRadius: 4,
+                transition: "color 150ms ease",
+                flexShrink: 0,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--color-danger, #ef4444)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-muted)";
+              }}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Delete confirm ─────────────────────────────────────────────────────────────
 
 function DeleteConfirmBar({ movieId, onCancel }: { movieId: string; onCancel: () => void }) {
@@ -290,7 +439,7 @@ function DeleteConfirmBar({ movieId, onCancel }: { movieId: string; onCancel: ()
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "releases";
+type Tab = "overview" | "releases" | "files";
 
 export default function MovieDetail() {
   const { id } = useParams<{ id: string }>();
@@ -469,7 +618,7 @@ export default function MovieDetail() {
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Tabs */}
           <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--color-border-subtle)", marginBottom: 20 }}>
-            {(["overview", "releases"] as Tab[]).map((t) => (
+            {(["overview", "releases", "files"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -608,6 +757,7 @@ export default function MovieDetail() {
           )}
 
           {tab === "releases" && <ReleasesTab movieId={movie.id} />}
+          {tab === "files" && <FilesTab movieId={movie.id} />}
         </div>
       </div>
     </div>

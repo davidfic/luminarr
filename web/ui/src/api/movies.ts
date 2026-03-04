@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiFetch } from "./client";
-import type { Movie, MovieListResponse, TMDBResult, Release, GrabHistory } from "@/types";
+import type { Movie, MovieListResponse, TMDBResult, Release, GrabHistory, MovieFile } from "@/types";
 
 interface MovieFilters {
   library_id?: string;
@@ -125,5 +125,28 @@ export function useRefreshMovie() {
       apiFetch<void>(`/movies/${id}/refresh`, { method: "POST" }),
     onSuccess: (_, id) => qc.invalidateQueries({ queryKey: ["movies", id] }),
     onError: (err) => toast.error((err as Error).message),
+  });
+}
+
+export function useMovieFiles(movieId: string) {
+  return useQuery({
+    queryKey: ["movies", movieId, "files"],
+    queryFn: () => apiFetch<MovieFile[]>(`/movies/${movieId}/files`),
+    enabled: !!movieId,
+  });
+}
+
+export function useDeleteMovieFile(movieId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fileId, deleteFromDisk }: { fileId: string; deleteFromDisk: boolean }) =>
+      apiFetch<void>(
+        `/movies/${movieId}/files/${fileId}?delete_from_disk=${deleteFromDisk}`,
+        { method: "DELETE" }
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["movies", movieId, "files"] });
+      qc.invalidateQueries({ queryKey: ["movies", movieId] });
+    },
   });
 }
