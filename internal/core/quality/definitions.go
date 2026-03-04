@@ -11,22 +11,24 @@ import (
 // range for releases of that quality, expressed in MB per minute of runtime.
 // This mirrors Radarr's Quality Definitions concept.
 type Definition struct {
-	ID         string // stable slug, e.g. "1080p-bluray-x265-none"
-	Name       string // human-readable label, e.g. "1080p Bluray"
-	Resolution string
-	Source     string
-	Codec      string
-	HDR        string
-	MinSize    float64 // MB per minute (0 = no minimum)
-	MaxSize    float64 // MB per minute (0 = no limit)
-	SortOrder  int
+	ID            string // stable slug, e.g. "1080p-bluray-x265-none"
+	Name          string // human-readable label, e.g. "1080p Bluray"
+	Resolution    string
+	Source        string
+	Codec         string
+	HDR           string
+	MinSize       float64 // MB per minute (0 = no minimum)
+	MaxSize       float64 // MB per minute (0 = no limit)
+	PreferredSize float64 // MB per minute target within [min, max] (0 = same as max)
+	SortOrder     int
 }
 
-// DefinitionSizeUpdate carries the new min/max values for a single definition.
+// DefinitionSizeUpdate carries the new size values for a single definition.
 type DefinitionSizeUpdate struct {
-	ID      string
-	MinSize float64
-	MaxSize float64
+	ID            string
+	MinSize       float64
+	MaxSize       float64
+	PreferredSize float64
 }
 
 // DefinitionService manages quality definitions.
@@ -57,9 +59,10 @@ func (s *DefinitionService) List(ctx context.Context) ([]Definition, error) {
 func (s *DefinitionService) BulkUpdate(ctx context.Context, updates []DefinitionSizeUpdate) error {
 	for _, u := range updates {
 		if err := s.q.UpdateQualityDefinitionSizes(ctx, dbsqlite.UpdateQualityDefinitionSizesParams{
-			MinSize: u.MinSize,
-			MaxSize: u.MaxSize,
-			ID:      u.ID,
+			MinSize:       u.MinSize,
+			MaxSize:       u.MaxSize,
+			PreferredSize: u.PreferredSize,
+			ID:            u.ID,
 		}); err != nil {
 			return fmt.Errorf("update quality definition %q: %w", u.ID, err)
 		}
@@ -69,14 +72,15 @@ func (s *DefinitionService) BulkUpdate(ctx context.Context, updates []Definition
 
 func rowToDefinition(r dbsqlite.QualityDefinition) Definition {
 	return Definition{
-		ID:         r.ID,
-		Name:       r.Name,
-		Resolution: r.Resolution,
-		Source:     r.Source,
-		Codec:      r.Codec,
-		HDR:        r.Hdr,
-		MinSize:    r.MinSize,
-		MaxSize:    r.MaxSize,
-		SortOrder:  int(r.SortOrder),
+		ID:            r.ID,
+		Name:          r.Name,
+		Resolution:    r.Resolution,
+		Source:        r.Source,
+		Codec:         r.Codec,
+		HDR:           r.Hdr,
+		MinSize:       r.MinSize,
+		MaxSize:       r.MaxSize,
+		PreferredSize: r.PreferredSize,
+		SortOrder:     int(r.SortOrder),
 	}
 }

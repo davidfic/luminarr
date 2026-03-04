@@ -12,15 +12,16 @@ import (
 // ── Response / request shapes ─────────────────────────────────────────────────
 
 type qualityDefinitionBody struct {
-	ID         string  `json:"id"          doc:"Stable slug identifier"`
-	Name       string  `json:"name"        doc:"Human-readable quality name"`
-	Resolution string  `json:"resolution"  doc:"Video resolution"`
-	Source     string  `json:"source"      doc:"Release source"`
-	Codec      string  `json:"codec"       doc:"Video codec"`
-	HDR        string  `json:"hdr"         doc:"HDR format"`
-	MinSize    float64 `json:"min_size"    doc:"Minimum file size in MB per minute (0 = no minimum)"`
-	MaxSize    float64 `json:"max_size"    doc:"Maximum file size in MB per minute (0 = no limit)"`
-	SortOrder  int     `json:"sort_order"  doc:"Display sort order"`
+	ID            string  `json:"id"          doc:"Stable slug identifier"`
+	Name          string  `json:"name"        doc:"Human-readable quality name"`
+	Resolution    string  `json:"resolution"  doc:"Video resolution"`
+	Source        string  `json:"source"      doc:"Release source"`
+	Codec         string  `json:"codec"       doc:"Video codec"`
+	HDR           string  `json:"hdr"         doc:"HDR format"`
+	MinSize       float64 `json:"min_size"       doc:"Minimum file size in MB per minute (0 = no minimum)"`
+	MaxSize       float64 `json:"max_size"       doc:"Maximum file size in MB per minute (0 = no limit)"`
+	PreferredSize float64 `json:"preferred_size" doc:"Preferred file size in MB per minute within [min, max] (0 = same as max)"`
+	SortOrder     int     `json:"sort_order"     doc:"Display sort order"`
 }
 
 type qualityDefinitionListOutput struct {
@@ -28,9 +29,10 @@ type qualityDefinitionListOutput struct {
 }
 
 type qualityDefinitionUpdateItem struct {
-	ID      string  `json:"id"       doc:"Definition ID to update"`
-	MinSize float64 `json:"min_size" doc:"Minimum file size in MB per minute"`
-	MaxSize float64 `json:"max_size" doc:"Maximum file size in MB per minute"`
+	ID            string  `json:"id"             doc:"Definition ID to update"`
+	MinSize       float64 `json:"min_size"       doc:"Minimum file size in MB per minute"`
+	MaxSize       float64 `json:"max_size"       doc:"Maximum file size in MB per minute"`
+	PreferredSize float64 `json:"preferred_size" doc:"Preferred file size in MB per minute"`
 }
 
 type qualityDefinitionBulkUpdateInput struct {
@@ -43,15 +45,16 @@ type qualityDefinitionBulkUpdateOutput struct{}
 
 func definitionToBody(d quality.Definition) *qualityDefinitionBody {
 	return &qualityDefinitionBody{
-		ID:         d.ID,
-		Name:       d.Name,
-		Resolution: d.Resolution,
-		Source:     d.Source,
-		Codec:      d.Codec,
-		HDR:        d.HDR,
-		MinSize:    d.MinSize,
-		MaxSize:    d.MaxSize,
-		SortOrder:  d.SortOrder,
+		ID:            d.ID,
+		Name:          d.Name,
+		Resolution:    d.Resolution,
+		Source:        d.Source,
+		Codec:         d.Codec,
+		HDR:           d.HDR,
+		MinSize:       d.MinSize,
+		MaxSize:       d.MaxSize,
+		PreferredSize: d.PreferredSize,
+		SortOrder:     d.SortOrder,
 	}
 }
 
@@ -89,9 +92,10 @@ func RegisterQualityDefinitionRoutes(api huma.API, svc *quality.DefinitionServic
 		updates := make([]quality.DefinitionSizeUpdate, len(input.Body))
 		for i, item := range input.Body {
 			updates[i] = quality.DefinitionSizeUpdate{
-				ID:      item.ID,
-				MinSize: item.MinSize,
-				MaxSize: item.MaxSize,
+				ID:            item.ID,
+				MinSize:       item.MinSize,
+				MaxSize:       item.MaxSize,
+				PreferredSize: item.PreferredSize,
 			}
 		}
 		if err := svc.BulkUpdate(ctx, updates); err != nil {

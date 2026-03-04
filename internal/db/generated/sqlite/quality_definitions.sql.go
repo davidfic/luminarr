@@ -10,7 +10,7 @@ import (
 )
 
 const listQualityDefinitions = `-- name: ListQualityDefinitions :many
-SELECT id, name, resolution, source, codec, hdr, min_size, max_size, sort_order FROM quality_definitions ORDER BY sort_order ASC
+SELECT id, name, resolution, source, codec, hdr, min_size, max_size, sort_order, preferred_size FROM quality_definitions ORDER BY sort_order ASC
 `
 
 func (q *Queries) ListQualityDefinitions(ctx context.Context) ([]QualityDefinition, error) {
@@ -32,6 +32,7 @@ func (q *Queries) ListQualityDefinitions(ctx context.Context) ([]QualityDefiniti
 			&i.MinSize,
 			&i.MaxSize,
 			&i.SortOrder,
+			&i.PreferredSize,
 		); err != nil {
 			return nil, err
 		}
@@ -48,17 +49,23 @@ func (q *Queries) ListQualityDefinitions(ctx context.Context) ([]QualityDefiniti
 
 const updateQualityDefinitionSizes = `-- name: UpdateQualityDefinitionSizes :exec
 UPDATE quality_definitions
-SET min_size = ?, max_size = ?
+SET min_size = ?, max_size = ?, preferred_size = ?
 WHERE id = ?
 `
 
 type UpdateQualityDefinitionSizesParams struct {
-	MinSize float64 `json:"minSize"`
-	MaxSize float64 `json:"maxSize"`
-	ID      string  `json:"id"`
+	MinSize       float64 `json:"minSize"`
+	MaxSize       float64 `json:"maxSize"`
+	PreferredSize float64 `json:"preferredSize"`
+	ID            string  `json:"id"`
 }
 
 func (q *Queries) UpdateQualityDefinitionSizes(ctx context.Context, arg UpdateQualityDefinitionSizesParams) error {
-	_, err := q.db.ExecContext(ctx, updateQualityDefinitionSizes, arg.MinSize, arg.MaxSize, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateQualityDefinitionSizes,
+		arg.MinSize,
+		arg.MaxSize,
+		arg.PreferredSize,
+		arg.ID,
+	)
 	return err
 }

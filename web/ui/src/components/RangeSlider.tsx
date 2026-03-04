@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 
 // ── Scale ──────────────────────────────────────────────────────────────────────
 // Logarithmic mapping between slider position [0, 1] and MB/min value [0, 800].
-// Position 0 always means "0" (no minimum / use the zero sentinel).
+// Position 0 always means "0" (no minimum / no-limit sentinel for min).
 // Max thumb at position ≥ 0.99 maps to stored value 0 (= "no limit").
 
 const SLIDER_MAX = 800;
@@ -17,7 +17,6 @@ function positionToValue(position: number, isMax: boolean): number {
   if (isMax && position >= 0.99) return 0; // no-limit sentinel
   if (position <= 0) return 0;
   const raw = Math.exp(position * Math.log(SLIDER_MAX + 1)) - 1;
-  // Round to sensible precision based on magnitude
   if (raw < 10) return Math.round(raw * 10) / 10;
   if (raw < 100) return Math.round(raw);
   return Math.round(raw / 5) * 5;
@@ -36,20 +35,30 @@ export interface RangeSliderProps {
   minValue: number;
   /** Stored max_size value (MB/min). 0 = no limit. */
   maxValue: number;
-  onChange: (min: number, max: number) => void;
+  /** Stored preferred_size value (MB/min). 0 = same as max. */
+  preferredValue: number;
+  onChange: (min: number, max: number, preferred: number) => void;
 }
 
-const THUMB_SIZE = 14; // px diameter
+const THUMB_SIZE = 14; // px — min/max circle diameter
+const PREF_SIZE = 10;  // px — preferred diamond size (before rotation)
 const TRACK_HEIGHT = 4; // px
 
-export function RangeSlider({ minValue, maxValue, onChange }: RangeSliderProps) {
+export function RangeSlider({ minValue, maxValue, preferredValue, onChange }: RangeSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const [dragging, setDragging] = useState<"min" | "max" | null>(null);
-  const [hoveredThumb, setHoveredThumb] = useState<"min" | "max" | null>(null);
+  const [dragging, setDragging] = useState<"min" | "max" | "pref" | null>(null);
+  const [hoveredThumb, setHoveredThumb] = useState<"min" | "max" | "pref" | null>(null);
 
-  // Convert stored values → positions, treating maxValue=0 as "far right"
-  const minPos = valueToPosition(minValue);
-  const maxPos = maxValue === 0 ? 1.0 : valueToPosition(maxValue);
+  // Effective max cap for calculations
+  const maxCap = maxValue === 0 ? SLIDER_MAX : maxValue;
+
+  const minPos  = valueToPosition(minValue);
+  const maxPos  = maxValue === 0 ? 1.0 : valueToPosition(maxValue);
+
+  // Preferred: if 0, treat same as max (sits at maxPos)
+  const prefEffective = preferredValue === 0 ? maxCap : Math.min(preferredValue, maxCap);
+  const prefPosRaw    = valueToPosition(prefEffective);
+  const prefPos       = Math.max(minPos, Math.min(prefPosRaw, maxPos));
 
   function posFromEvent(e: React.PointerEvent): number {
     const track = trackRef.current;
@@ -59,44 +68,73 @@ export function RangeSlider({ minValue, maxValue, onChange }: RangeSliderProps) 
   }
 
   function handleTrackClick(e: React.MouseEvent) {
+    if (dragging) return; // ignore click after drag
     const track = trackRef.current;
     if (!track) return;
     const rect = track.getBoundingClientRect();
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    // Move the nearest thumb
-    const distToMin = Math.abs(pos - minPos);
-    const distToMax = Math.abs(pos - maxPos);
-    if (distToMin <= distToMax) {
-      const newMin = positionToValue(Math.min(pos, maxPos), false);
-      onChange(newMin, maxValue);
-    } else {
+    // Move the nearest of three thumbs
+    const dMin  = Math.abs(pos - minPos);
+    const dMax  = Math.abs(pos - maxPos);
+    const dPref = Math.abs(pos - prefPos);
+    const nearest = Math.min(dMin, dMax, dPref);
+    if (nearest === dMin) {
+      onChange(positionToValue(Math.min(pos, maxPos), false), maxValue, preferredValue);
+    } else if (nearest === dMax) {
       const newMax = positionToValue(Math.max(pos, minPos), true);
-      onChange(minValue, newMax);
+      // Snap preferred if it falls outside new [min, max]
+      const newPref = preferredValue > 0 && preferredValue > (newMax || SLIDER_MAX)
+        ? newMax
+        : preferredValue;
+      onChange(minValue, newMax, newPref);
+    } else {
+      const clampedPos = Math.max(minPos, Math.min(pos, maxPos));
+      onChange(minValue, maxValue, positionToValue(clampedPos, false));
     }
   }
 
+  // ── Min thumb ──
   function handleMinPointerDown(e: React.PointerEvent) {
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setDragging("min");
   }
+  function handleMinPointerMove(e: React.PointerEvent) {
+    if (dragging !== "min") return;
+    const pos = posFromEvent(e);
+    const clampedPos = Math.min(pos, prefPos - 0.01, maxPos - 0.02);
+    onChange(positionToValue(clampedPos, false), maxValue, preferredValue);
+  }
 
+  // ── Max thumb ──
   function handleMaxPointerDown(e: React.PointerEvent) {
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setDragging("max");
   }
-
-  function handlePointerMove(e: React.PointerEvent, which: "min" | "max") {
-    if (dragging !== which) return;
+  function handleMaxPointerMove(e: React.PointerEvent) {
+    if (dragging !== "max") return;
     const pos = posFromEvent(e);
-    if (which === "min") {
-      const clampedPos = Math.min(pos, maxPos - 0.01);
-      onChange(positionToValue(clampedPos, false), maxValue);
-    } else {
-      const clampedPos = Math.max(pos, minPos + 0.01);
-      onChange(minValue, positionToValue(clampedPos, true));
-    }
+    const clampedPos = Math.max(pos, prefPos + 0.01, minPos + 0.02);
+    const newMax = positionToValue(clampedPos, true);
+    // Snap preferred if it now exceeds new max
+    const newPrefEffective = preferredValue === 0 ? maxCap : preferredValue;
+    const newMaxCap = newMax === 0 ? SLIDER_MAX : newMax;
+    const newPref = newPrefEffective > newMaxCap ? newMax : preferredValue;
+    onChange(minValue, newMax, newPref);
+  }
+
+  // ── Preferred thumb ──
+  function handlePrefPointerDown(e: React.PointerEvent) {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setDragging("pref");
+  }
+  function handlePrefPointerMove(e: React.PointerEvent) {
+    if (dragging !== "pref") return;
+    const pos = posFromEvent(e);
+    const clampedPos = Math.max(minPos + 0.01, Math.min(pos, maxPos - 0.01));
+    onChange(minValue, maxValue, positionToValue(clampedPos, false));
   }
 
   function handlePointerUp(e: React.PointerEvent) {
@@ -104,10 +142,35 @@ export function RangeSlider({ minValue, maxValue, onChange }: RangeSliderProps) 
     setDragging(null);
   }
 
-  const minLabel = formatValue(minValue, false);
-  const maxLabel = formatValue(maxValue, true);
+  // ── Labels ──
 
-  function thumbStyle(which: "min" | "max", pos: number): React.CSSProperties {
+  const minLabel  = formatValue(minValue, false);
+  const maxLabel  = formatValue(maxValue, true);
+  const prefLabel = preferredValue === 0 ? formatValue(maxValue, true) : formatValue(preferredValue, false);
+
+  // Suppress preferred label if it's too close to min or max label (< 8% gap)
+  const showPrefLabel = Math.abs(prefPos - minPos) > 0.08 && Math.abs(prefPos - maxPos) > 0.08;
+  // Suppress max label if too close to min (< 8% gap)
+  const showMaxLabel = maxPos - minPos > 0.08;
+
+  function labelLeft(pos: number): string {
+    const pct = pos * 100;
+    if (pct < 4) return "0%";
+    if (pct > 96) return "auto";
+    return `${pct}%`;
+  }
+  function labelRight(pos: number): string {
+    return pos * 100 > 96 ? "0%" : "auto";
+  }
+  function labelTransform(pos: number): string {
+    const pct = pos * 100;
+    if (pct < 4 || pct > 96) return "none";
+    return "translateX(-50%)";
+  }
+
+  // ── Thumb style factories ──
+
+  function circleThumbStyle(which: "min" | "max", pos: number): React.CSSProperties {
     const isHovered = hoveredThumb === which;
     const isDragging = dragging === which;
     return {
@@ -126,27 +189,31 @@ export function RangeSlider({ minValue, maxValue, onChange }: RangeSliderProps) 
         : "none",
       transition: isDragging ? "none" : "transform 0.1s, box-shadow 0.1s",
       touchAction: "none",
-      zIndex: isDragging ? 3 : 2,
+      zIndex: isDragging ? 4 : 2,
     };
   }
 
-  // Label x offset (clamped so it doesn't overflow the slider)
-  function labelLeft(pos: number): string {
-    const pct = pos * 100;
-    if (pct < 5) return "0%";
-    if (pct > 95) return "auto";
-    return `${pct}%`;
-  }
-  function labelRight(pos: number): string {
-    const pct = pos * 100;
-    if (pct > 95) return "0%";
-    return "auto";
-  }
-  function labelTransform(pos: number): string {
-    const pct = pos * 100;
-    if (pct < 5) return "none";
-    if (pct > 95) return "none";
-    return "translateX(-50%)";
+  function prefThumbStyle(): React.CSSProperties {
+    const isHovered = hoveredThumb === "pref";
+    const isDragging = dragging === "pref";
+    return {
+      position: "absolute",
+      left: `calc(${prefPos * 100}% - ${PREF_SIZE / 2}px)`,
+      top: `calc(50% - ${PREF_SIZE / 2}px)`,
+      width: PREF_SIZE,
+      height: PREF_SIZE,
+      borderRadius: 2,
+      background: "var(--color-info)",
+      border: "2px solid var(--color-bg-surface)",
+      cursor: isDragging ? "grabbing" : "grab",
+      transform: isHovered || isDragging ? "rotate(45deg) scale(1.3)" : "rotate(45deg) scale(1)",
+      boxShadow: isHovered || isDragging
+        ? "0 0 0 3px color-mix(in srgb, var(--color-info) 25%, transparent)"
+        : "none",
+      transition: isDragging ? "none" : "transform 0.1s, box-shadow 0.1s",
+      touchAction: "none",
+      zIndex: isDragging ? 4 : 3,
+    };
   }
 
   return (
@@ -164,12 +231,26 @@ export function RangeSlider({ minValue, maxValue, onChange }: RangeSliderProps) 
           cursor: "pointer",
         }}
       >
-        {/* Filled range between thumbs */}
+        {/* Filled range between min and max thumbs */}
         <div
           style={{
             position: "absolute",
             left: `${minPos * 100}%`,
             right: `${(1 - maxPos) * 100}%`,
+            top: 0,
+            bottom: 0,
+            background: "color-mix(in srgb, var(--color-accent) 35%, transparent)",
+            borderRadius: TRACK_HEIGHT / 2,
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Preferred fill: min → preferred (slightly brighter) */}
+        <div
+          style={{
+            position: "absolute",
+            left: `${minPos * 100}%`,
+            right: `${(1 - prefPos) * 100}%`,
             top: 0,
             bottom: 0,
             background: "var(--color-accent)",
@@ -180,19 +261,29 @@ export function RangeSlider({ minValue, maxValue, onChange }: RangeSliderProps) 
 
         {/* Min thumb */}
         <div
-          style={thumbStyle("min", minPos)}
+          style={circleThumbStyle("min", minPos)}
           onPointerDown={handleMinPointerDown}
-          onPointerMove={(e) => handlePointerMove(e, "min")}
+          onPointerMove={handleMinPointerMove}
           onPointerUp={handlePointerUp}
           onPointerEnter={() => setHoveredThumb("min")}
           onPointerLeave={() => { if (dragging !== "min") setHoveredThumb(null); }}
         />
 
+        {/* Preferred thumb (diamond) */}
+        <div
+          style={prefThumbStyle()}
+          onPointerDown={handlePrefPointerDown}
+          onPointerMove={handlePrefPointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerEnter={() => setHoveredThumb("pref")}
+          onPointerLeave={() => { if (dragging !== "pref") setHoveredThumb(null); }}
+        />
+
         {/* Max thumb */}
         <div
-          style={thumbStyle("max", maxPos)}
+          style={circleThumbStyle("max", maxPos)}
           onPointerDown={handleMaxPointerDown}
-          onPointerMove={(e) => handlePointerMove(e, "max")}
+          onPointerMove={handleMaxPointerMove}
           onPointerUp={handlePointerUp}
           onPointerEnter={() => setHoveredThumb("max")}
           onPointerLeave={() => { if (dragging !== "max") setHoveredThumb(null); }}
@@ -217,8 +308,26 @@ export function RangeSlider({ minValue, maxValue, onChange }: RangeSliderProps) 
           {minLabel}
         </span>
 
-        {/* Max label — only show if far enough from min to avoid overlap */}
-        {maxPos - minPos > 0.08 && (
+        {/* Preferred label */}
+        {showPrefLabel && (
+          <span
+            style={{
+              position: "absolute",
+              left: labelLeft(prefPos),
+              right: labelRight(prefPos),
+              transform: labelTransform(prefPos),
+              fontSize: 11,
+              fontFamily: "var(--font-family-mono)",
+              color: "var(--color-info)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {prefLabel}
+          </span>
+        )}
+
+        {/* Max label */}
+        {showMaxLabel && (
           <span
             style={{
               position: "absolute",
@@ -235,7 +344,7 @@ export function RangeSlider({ minValue, maxValue, onChange }: RangeSliderProps) 
           </span>
         )}
 
-        {/* Unit label — right-aligned */}
+        {/* Unit label */}
         <span
           style={{
             position: "absolute",

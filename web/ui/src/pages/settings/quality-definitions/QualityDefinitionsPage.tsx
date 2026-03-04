@@ -4,22 +4,23 @@ import { RangeSlider } from "@/components/RangeSlider";
 import type { QualityDefinition } from "@/types";
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
+// preferred = max (TRaSH Guides: set preferred as high as possible within range)
 
-const DEFAULTS: Record<string, { min: number; max: number }> = {
-  "sd-dvd-xvid-none":        { min: 0,  max: 3   },
-  "sd-hdtv-x264-none":       { min: 0,  max: 3   },
-  "720p-hdtv-x264-none":     { min: 2,  max: 20  },
-  "720p-webdl-x264-none":    { min: 2,  max: 20  },
-  "720p-webrip-x264-none":   { min: 2,  max: 20  },
-  "720p-bluray-x264-none":   { min: 2,  max: 30  },
-  "1080p-hdtv-x264-none":    { min: 4,  max: 40  },
-  "1080p-webdl-x264-none":   { min: 4,  max: 40  },
-  "1080p-webrip-x265-none":  { min: 4,  max: 40  },
-  "1080p-bluray-x265-none":  { min: 4,  max: 95  },
-  "1080p-remux-x265-none":   { min: 17, max: 400 },
-  "2160p-webdl-x265-hdr10":  { min: 15, max: 250 },
-  "2160p-bluray-x265-hdr10": { min: 15, max: 250 },
-  "2160p-remux-x265-hdr10":  { min: 35, max: 800 },
+const DEFAULTS: Record<string, { min: number; max: number; preferred: number }> = {
+  "sd-dvd-xvid-none":        { min: 0,  max: 3,   preferred: 3   },
+  "sd-hdtv-x264-none":       { min: 0,  max: 3,   preferred: 3   },
+  "720p-hdtv-x264-none":     { min: 2,  max: 20,  preferred: 20  },
+  "720p-webdl-x264-none":    { min: 2,  max: 20,  preferred: 20  },
+  "720p-webrip-x264-none":   { min: 2,  max: 20,  preferred: 20  },
+  "720p-bluray-x264-none":   { min: 2,  max: 30,  preferred: 30  },
+  "1080p-hdtv-x264-none":    { min: 4,  max: 40,  preferred: 40  },
+  "1080p-webdl-x264-none":   { min: 4,  max: 40,  preferred: 40  },
+  "1080p-webrip-x265-none":  { min: 4,  max: 40,  preferred: 40  },
+  "1080p-bluray-x265-none":  { min: 4,  max: 95,  preferred: 95  },
+  "1080p-remux-x265-none":   { min: 17, max: 400, preferred: 400 },
+  "2160p-webdl-x265-hdr10":  { min: 15, max: 250, preferred: 250 },
+  "2160p-bluray-x265-hdr10": { min: 15, max: 250, preferred: 250 },
+  "2160p-remux-x265-hdr10":  { min: 35, max: 800, preferred: 800 },
 };
 
 // ── Resolution badge ──────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ function ResolutionBadge({ resolution }: { resolution: string }) {
 interface RowState {
   min: number;
   max: number;
+  preferred: number;
 }
 
 // ── Table row ─────────────────────────────────────────────────────────────────
@@ -67,13 +69,16 @@ interface DefinitionRowProps {
   def: QualityDefinition;
   row: RowState;
   isLast: boolean;
-  onChange: (id: string, min: number, max: number) => void;
+  onChange: (id: string, min: number, max: number, preferred: number) => void;
   onReset: (id: string) => void;
 }
 
 function DefinitionRow({ def, row, isLast, onChange, onReset }: DefinitionRowProps) {
   const defaults = DEFAULTS[def.id];
-  const atDefault = defaults && row.min === defaults.min && row.max === defaults.max;
+  const atDefault = defaults
+    && row.min === defaults.min
+    && row.max === defaults.max
+    && row.preferred === defaults.preferred;
 
   const sourceInfo = [
     def.source,
@@ -99,11 +104,12 @@ function DefinitionRow({ def, row, isLast, onChange, onReset }: DefinitionRowPro
       </td>
 
       {/* Range slider */}
-      <td style={{ padding: "14px 20px 2px", verticalAlign: "top", width: "100%", minWidth: 280 }}>
+      <td style={{ padding: "14px 20px 2px", verticalAlign: "top", width: "100%", minWidth: 300 }}>
         <RangeSlider
           minValue={row.min}
           maxValue={row.max}
-          onChange={(min, max) => onChange(def.id, min, max)}
+          preferredValue={row.preferred}
+          onChange={(min, max, preferred) => onChange(def.id, min, max, preferred)}
         />
       </td>
 
@@ -143,21 +149,21 @@ export default function QualityDefinitionsPage() {
     if (!data) return;
     const initial: Record<string, RowState> = {};
     for (const d of data) {
-      initial[d.id] = { min: d.min_size, max: d.max_size };
+      initial[d.id] = { min: d.min_size, max: d.max_size, preferred: d.preferred_size };
     }
     setRows(initial);
     setDirty(false);
   }, [data]);
 
-  function handleChange(id: string, min: number, max: number) {
-    setRows((prev) => ({ ...prev, [id]: { min, max } }));
+  function handleChange(id: string, min: number, max: number, preferred: number) {
+    setRows((prev) => ({ ...prev, [id]: { min, max, preferred } }));
     setDirty(true);
   }
 
   function handleReset(id: string) {
     const defaults = DEFAULTS[id];
     if (!defaults) return;
-    setRows((prev) => ({ ...prev, [id]: { min: defaults.min, max: defaults.max } }));
+    setRows((prev) => ({ ...prev, [id]: { min: defaults.min, max: defaults.max, preferred: defaults.preferred } }));
     setDirty(true);
   }
 
@@ -166,7 +172,9 @@ export default function QualityDefinitionsPage() {
     const reset: Record<string, RowState> = {};
     for (const d of data) {
       const def = DEFAULTS[d.id];
-      reset[d.id] = def ?? { min: d.min_size, max: d.max_size };
+      reset[d.id] = def
+        ? { min: def.min, max: def.max, preferred: def.preferred }
+        : { min: d.min_size, max: d.max_size, preferred: d.preferred_size };
     }
     setRows(reset);
     setDirty(true);
@@ -176,8 +184,9 @@ export default function QualityDefinitionsPage() {
     if (!data) return;
     const updates = data.map((d) => ({
       id: d.id,
-      min_size: rows[d.id]?.min ?? d.min_size,
-      max_size: rows[d.id]?.max ?? d.max_size,
+      min_size:       rows[d.id]?.min       ?? d.min_size,
+      max_size:       rows[d.id]?.max       ?? d.max_size,
+      preferred_size: rows[d.id]?.preferred ?? d.preferred_size,
     }));
     await updateMutation.mutateAsync(updates);
     setDirty(false);
@@ -194,8 +203,8 @@ export default function QualityDefinitionsPage() {
             Quality Definitions
           </h1>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--color-text-secondary)" }}>
-            Acceptable file-size range (MB per minute of runtime) for each quality level. Use the sliders to
-            filter out suspiciously small or oversized releases.
+            Acceptable file-size range (MB per minute of runtime) for each quality level. The
+            blue diamond marks the preferred size within that range.
           </p>
         </div>
 
@@ -274,7 +283,7 @@ export default function QualityDefinitionsPage() {
                 <DefinitionRow
                   key={def.id}
                   def={def}
-                  row={rows[def.id] ?? { min: def.min_size, max: def.max_size }}
+                  row={rows[def.id] ?? { min: def.min_size, max: def.max_size, preferred: def.preferred_size }}
                   isLast={idx === defs.length - 1}
                   onChange={handleChange}
                   onReset={handleReset}
@@ -285,13 +294,21 @@ export default function QualityDefinitionsPage() {
         )}
       </div>
 
-      {/* Help */}
+      {/* Legend */}
       {!isLoading && !error && defs.length > 0 && (
-        <p style={{ margin: 0, fontSize: 12, color: "var(--color-text-muted)", lineHeight: 1.6 }}>
-          Left thumb = minimum file size. Right thumb at{" "}
-          <span style={{ fontFamily: "var(--font-family-mono)" }}>∞</span> = no upper limit.
-          Scale is logarithmic — low values have fine-grained control.
-        </p>
+        <div style={{ display: "flex", gap: 20, fontSize: 12, color: "var(--color-text-muted)", alignItems: "center" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "var(--color-accent)" }} />
+            Min / Max
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 1, background: "var(--color-info)", transform: "rotate(45deg)" }} />
+            Preferred
+          </span>
+          <span style={{ color: "var(--color-text-muted)" }}>
+            Scale is logarithmic · sizes in MB per minute of runtime
+          </span>
+        </div>
       )}
     </div>
   );

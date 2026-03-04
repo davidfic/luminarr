@@ -211,8 +211,9 @@ export interface QualityDefinition {
   source: string;
   codec: string;
   hdr: string;
-  min_size: number; // MB per minute (0 = no minimum)
-  max_size: number; // MB per minute (0 = no limit)
+  min_size: number;       // MB per minute (0 = no minimum)
+  max_size: number;       // MB per minute (0 = no limit)
+  preferred_size: number; // MB per minute target within [min, max] (0 = same as max)
   sort_order: number;
 }
 
@@ -220,6 +221,7 @@ export interface QualityDefinitionUpdate {
   id: string;
   min_size: number;
   max_size: number;
+  preferred_size: number;
 }
 
 // ── Indexers ───────────────────────────────────────────────────────────────
