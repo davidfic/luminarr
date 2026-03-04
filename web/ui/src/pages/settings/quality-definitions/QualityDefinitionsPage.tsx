@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQualityDefinitions, useUpdateQualityDefinitions } from "@/api/quality-definitions";
+import { RangeSlider } from "@/components/RangeSlider";
 import type { QualityDefinition } from "@/types";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Defaults ──────────────────────────────────────────────────────────────────
 
-// Default size constraints seeded in the migration — used for Reset to Defaults.
 const DEFAULTS: Record<string, { min: number; max: number }> = {
   "sd-dvd-xvid-none":        { min: 0,  max: 3   },
   "sd-hdtv-x264-none":       { min: 0,  max: 3   },
@@ -22,7 +22,9 @@ const DEFAULTS: Record<string, { min: number; max: number }> = {
   "2160p-remux-x265-hdr10":  { min: 35, max: 800 },
 };
 
-function resolutionBadgeColor(resolution: string): string {
+// ── Resolution badge ──────────────────────────────────────────────────────────
+
+function resolutionColor(resolution: string): string {
   switch (resolution) {
     case "2160p": return "var(--color-accent)";
     case "1080p": return "var(--color-success)";
@@ -31,149 +33,94 @@ function resolutionBadgeColor(resolution: string): string {
   }
 }
 
-// ── Number input ──────────────────────────────────────────────────────────────
-
-interface SizeInputProps {
-  value: number;
-  onChange: (v: number) => void;
-  placeholder: string;
-}
-
-function SizeInput({ value, onChange, placeholder }: SizeInputProps) {
-  const [focused, setFocused] = useState(false);
+function ResolutionBadge({ resolution }: { resolution: string }) {
+  const color = resolutionColor(resolution);
   return (
-    <input
-      type="number"
-      min={0}
-      step={0.1}
-      value={value === 0 ? "" : value}
-      placeholder={placeholder}
-      onChange={(e) => {
-        const v = parseFloat(e.target.value);
-        onChange(isNaN(v) ? 0 : v);
-      }}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={{
-        width: 90,
-        background: "var(--color-bg-elevated)",
-        border: `1px solid ${focused ? "var(--color-accent)" : "var(--color-border-default)"}`,
-        borderRadius: 5,
-        padding: "5px 8px",
-        fontSize: 13,
-        color: "var(--color-text-primary)",
-        outline: "none",
-        textAlign: "right",
-        fontFamily: "var(--font-family-mono)",
-      }}
-    />
+    <span style={{
+      display: "inline-block",
+      background: `color-mix(in srgb, ${color} 15%, transparent)`,
+      color,
+      borderRadius: 3,
+      padding: "1px 5px",
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: "0.05em",
+      textTransform: "uppercase",
+      verticalAlign: "middle",
+      marginLeft: 7,
+    }}>
+      {resolution}
+    </span>
   );
 }
 
-// ── Table row ─────────────────────────────────────────────────────────────────
+// ── Row state ─────────────────────────────────────────────────────────────────
 
 interface RowState {
   min: number;
   max: number;
 }
 
+// ── Table row ─────────────────────────────────────────────────────────────────
+
 interface DefinitionRowProps {
   def: QualityDefinition;
   row: RowState;
   isLast: boolean;
-  onChange: (id: string, field: "min" | "max", value: number) => void;
+  onChange: (id: string, min: number, max: number) => void;
   onReset: (id: string) => void;
 }
 
 function DefinitionRow({ def, row, isLast, onChange, onReset }: DefinitionRowProps) {
-  const hasDefault = DEFAULTS[def.id] !== undefined;
-  const defaultMatch =
-    hasDefault &&
-    row.min === DEFAULTS[def.id].min &&
-    row.max === DEFAULTS[def.id].max;
+  const defaults = DEFAULTS[def.id];
+  const atDefault = defaults && row.min === defaults.min && row.max === defaults.max;
+
+  const sourceInfo = [
+    def.source,
+    def.codec !== "unknown" ? def.codec : null,
+    def.hdr !== "none" ? def.hdr : null,
+  ].filter(Boolean).join(" · ");
 
   return (
     <tr style={{ borderBottom: isLast ? "none" : "1px solid var(--color-border-subtle)" }}>
-      {/* Name */}
-      <td style={{ padding: "10px 20px", verticalAlign: "middle" }}>
+      {/* Quality name + resolution badge */}
+      <td style={{ padding: "14px 20px", verticalAlign: "middle", whiteSpace: "nowrap" }}>
         <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>
           {def.name}
         </span>
+        <ResolutionBadge resolution={def.resolution} />
       </td>
 
-      {/* Resolution badge */}
-      <td style={{ padding: "10px 20px", verticalAlign: "middle", whiteSpace: "nowrap" }}>
-        <span
-          style={{
-            display: "inline-block",
-            background: `color-mix(in srgb, ${resolutionBadgeColor(def.resolution)} 15%, transparent)`,
-            color: resolutionBadgeColor(def.resolution),
-            borderRadius: 4,
-            padding: "2px 7px",
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
-          }}
-        >
-          {def.resolution}
+      {/* Source / codec / HDR */}
+      <td style={{ padding: "14px 20px", verticalAlign: "middle", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 11, color: "var(--color-text-muted)", letterSpacing: "0.02em" }}>
+          {sourceInfo}
         </span>
       </td>
 
-      {/* Source + codec */}
-      <td style={{ padding: "10px 20px", verticalAlign: "middle", fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
-        {def.source}
-        {def.codec !== "unknown" && (
-          <span style={{ marginLeft: 6, color: "var(--color-text-muted)", fontFamily: "var(--font-family-mono)" }}>
-            {def.codec}
-          </span>
-        )}
-      </td>
-
-      {/* HDR */}
-      <td style={{ padding: "10px 20px", verticalAlign: "middle", fontSize: 12, color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
-        {def.hdr !== "none" ? def.hdr : "—"}
-      </td>
-
-      {/* Min size */}
-      <td style={{ padding: "10px 20px", verticalAlign: "middle" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <SizeInput
-            value={row.min}
-            onChange={(v) => onChange(def.id, "min", v)}
-            placeholder="0"
-          />
-          <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>MB/min</span>
-        </div>
-      </td>
-
-      {/* Max size */}
-      <td style={{ padding: "10px 20px", verticalAlign: "middle" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <SizeInput
-            value={row.max}
-            onChange={(v) => onChange(def.id, "max", v)}
-            placeholder="∞"
-          />
-          <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>MB/min</span>
-        </div>
+      {/* Range slider */}
+      <td style={{ padding: "14px 20px 2px", verticalAlign: "top", width: "100%", minWidth: 280 }}>
+        <RangeSlider
+          minValue={row.min}
+          maxValue={row.max}
+          onChange={(min, max) => onChange(def.id, min, max)}
+        />
       </td>
 
       {/* Reset */}
-      <td style={{ padding: "10px 20px", verticalAlign: "middle" }}>
-        {hasDefault && !defaultMatch && (
+      <td style={{ padding: "14px 20px", verticalAlign: "middle", whiteSpace: "nowrap" }}>
+        {defaults && !atDefault && (
           <button
             onClick={() => onReset(def.id)}
             style={{
               background: "none",
-              border: "none",
+              border: "1px solid var(--color-border-default)",
+              borderRadius: 4,
               padding: "3px 8px",
-              fontSize: 12,
+              fontSize: 11,
               color: "var(--color-text-muted)",
               cursor: "pointer",
-              borderRadius: 4,
             }}
-            title="Reset to default"
           >
             Reset
           </button>
@@ -189,11 +136,9 @@ export default function QualityDefinitionsPage() {
   const { data, isLoading, error } = useQualityDefinitions();
   const updateMutation = useUpdateQualityDefinitions();
 
-  // Local editable state: id → { min, max }
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [dirty, setDirty] = useState(false);
 
-  // Initialise / reset when data loads.
   useEffect(() => {
     if (!data) return;
     const initial: Record<string, RowState> = {};
@@ -204,8 +149,8 @@ export default function QualityDefinitionsPage() {
     setDirty(false);
   }, [data]);
 
-  function handleChange(id: string, field: "min" | "max", value: number) {
-    setRows((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+  function handleChange(id: string, min: number, max: number) {
+    setRows((prev) => ({ ...prev, [id]: { min, max } }));
     setDirty(true);
   }
 
@@ -221,7 +166,7 @@ export default function QualityDefinitionsPage() {
     const reset: Record<string, RowState> = {};
     for (const d of data) {
       const def = DEFAULTS[d.id];
-      reset[d.id] = def ? { min: def.min, max: def.max } : { min: d.min_size, max: d.max_size };
+      reset[d.id] = def ?? { min: d.min_size, max: d.max_size };
     }
     setRows(reset);
     setDirty(true);
@@ -249,8 +194,8 @@ export default function QualityDefinitionsPage() {
             Quality Definitions
           </h1>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--color-text-secondary)" }}>
-            Set acceptable file-size ranges (MB per minute of runtime) for each quality level. Used to
-            filter out suspiciously small or large releases.
+            Acceptable file-size range (MB per minute of runtime) for each quality level. Use the sliders to
+            filter out suspiciously small or oversized releases.
           </p>
         </div>
 
@@ -267,7 +212,7 @@ export default function QualityDefinitionsPage() {
               cursor: "pointer",
             }}
           >
-            Reset All to Defaults
+            Reset All
           </button>
           <button
             onClick={handleSave}
@@ -292,7 +237,7 @@ export default function QualityDefinitionsPage() {
       {/* Table card */}
       <div style={{ background: "var(--color-bg-surface)", border: "1px solid var(--color-border-subtle)", borderRadius: 8, boxShadow: "var(--shadow-card)", overflow: "hidden" }}>
         {isLoading ? (
-          <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 20 }}>
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="skeleton" style={{ height: 14, borderRadius: 3 }} />
             ))}
@@ -305,17 +250,9 @@ export default function QualityDefinitionsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
-                {[
-                  { label: "Quality", note: "" },
-                  { label: "Resolution", note: "" },
-                  { label: "Source", note: "" },
-                  { label: "HDR", note: "" },
-                  { label: "Min Size", note: "MB/min" },
-                  { label: "Max Size", note: "MB/min" },
-                  { label: "", note: "" },
-                ].map(({ label, note }) => (
+                {["Quality", "Source", "Size Range", ""].map((h) => (
                   <th
-                    key={label || "_action"}
+                    key={h || "_action"}
                     style={{
                       textAlign: "left",
                       padding: "8px 20px",
@@ -327,12 +264,7 @@ export default function QualityDefinitionsPage() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {label}
-                    {note && (
-                      <span style={{ marginLeft: 4, fontSize: 10, fontWeight: 400, letterSpacing: 0, textTransform: "none" }}>
-                        ({note})
-                      </span>
-                    )}
+                    {h}
                   </th>
                 ))}
               </tr>
@@ -353,14 +285,13 @@ export default function QualityDefinitionsPage() {
         )}
       </div>
 
-      {/* Help text */}
+      {/* Help */}
       {!isLoading && !error && defs.length > 0 && (
-        <div style={{ fontSize: 12, color: "var(--color-text-muted)", lineHeight: 1.6 }}>
-          <strong style={{ color: "var(--color-text-secondary)" }}>Min Size:</strong> Releases smaller than this (in MB per minute of runtime) are considered too small and may be low-quality fakes.
-          Set to <code style={{ fontFamily: "var(--font-family-mono)" }}>0</code> for no minimum.{" "}
-          <strong style={{ color: "var(--color-text-secondary)" }}>Max Size:</strong> Releases larger than this are excluded.
-          Set to <code style={{ fontFamily: "var(--font-family-mono)" }}>0</code> for no limit.
-        </div>
+        <p style={{ margin: 0, fontSize: 12, color: "var(--color-text-muted)", lineHeight: 1.6 }}>
+          Left thumb = minimum file size. Right thumb at{" "}
+          <span style={{ fontFamily: "var(--font-family-mono)" }}>∞</span> = no upper limit.
+          Scale is logarithmic — low values have fine-grained control.
+        </p>
       )}
     </div>
   );
