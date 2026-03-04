@@ -24,6 +24,7 @@ type Querier interface {
 	CreateMovieFile(ctx context.Context, arg CreateMovieFileParams) (MovieFile, error)
 	CreateNotificationConfig(ctx context.Context, arg CreateNotificationConfigParams) (NotificationConfig, error)
 	CreateQualityProfile(ctx context.Context, arg CreateQualityProfileParams) (QualityProfile, error)
+	CreateRemotePathMapping(ctx context.Context, arg CreateRemotePathMappingParams) (RemotePathMapping, error)
 	DeleteBlocklistEntry(ctx context.Context, id string) error
 	DeleteDownloadClientConfig(ctx context.Context, id string) error
 	DeleteIndexerConfig(ctx context.Context, id string) error
@@ -32,7 +33,9 @@ type Querier interface {
 	DeleteMovieFile(ctx context.Context, id string) error
 	DeleteNotificationConfig(ctx context.Context, id string) error
 	DeleteQualityProfile(ctx context.Context, id string) error
+	DeleteRemotePathMapping(ctx context.Context, id string) error
 	GetDownloadClientConfig(ctx context.Context, id string) (DownloadClientConfig, error)
+	GetDownloadHandling(ctx context.Context) (DownloadHandling, error)
 	GetGrabByClientItemID(ctx context.Context, arg GetGrabByClientItemIDParams) (GrabHistory, error)
 	GetGrabByID(ctx context.Context, id string) (GrabHistory, error)
 	GetIndexerConfig(ctx context.Context, id string) (IndexerConfig, error)
@@ -66,10 +69,12 @@ type Querier interface {
 	ListNotificationConfigs(ctx context.Context) ([]NotificationConfig, error)
 	ListQualityDefinitions(ctx context.Context) ([]QualityDefinition, error)
 	ListQualityProfiles(ctx context.Context) ([]QualityProfile, error)
+	ListRemotePathMappings(ctx context.Context) ([]RemotePathMapping, error)
 	MarkGrabRemoved(ctx context.Context, id string) error
 	QualityProfileInUse(ctx context.Context, arg QualityProfileInUseParams) (int64, error)
 	SumMovieFileSizesByLibrary(ctx context.Context, libraryID string) (interface{}, error)
 	UpdateDownloadClientConfig(ctx context.Context, arg UpdateDownloadClientConfigParams) (DownloadClientConfig, error)
+	UpdateDownloadHandling(ctx context.Context, arg UpdateDownloadHandlingParams) (DownloadHandling, error)
 	UpdateGrabDownloadClient(ctx context.Context, arg UpdateGrabDownloadClientParams) error
 	UpdateGrabStatus(ctx context.Context, arg UpdateGrabStatusParams) error
 	UpdateIndexerConfig(ctx context.Context, arg UpdateIndexerConfigParams) (IndexerConfig, error)

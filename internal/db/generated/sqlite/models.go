@@ -31,6 +31,14 @@ type DownloadClientConfig struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
+type DownloadHandling struct {
+	ID                          int64 `json:"id"`
+	EnableCompleted             int64 `json:"enableCompleted"`
+	CheckIntervalMinutes        int64 `json:"checkIntervalMinutes"`
+	RedownloadFailed            int64 `json:"redownloadFailed"`
+	RedownloadFailedInteractive int64 `json:"redownloadFailedInteractive"`
+}
+
 type GrabHistory struct {
 	ID                string  `json:"id"`
 	MovieID           string  `json:"movieId"`
@@ -153,4 +161,11 @@ type QualityProfile struct {
 	UpgradeUntilJson *string `json:"upgradeUntilJson"`
 	CreatedAt        string  `json:"createdAt"`
 	UpdatedAt        string  `json:"updatedAt"`
+}
+
+type RemotePathMapping struct {
+	ID         string `json:"id"`
+	Host       string `json:"host"`
+	RemotePath string `json:"remotePath"`
+	LocalPath  string `json:"localPath"`
 }

@@ -11,11 +11,14 @@ import (
 )
 
 // QueuePoll returns a Job that polls all active downloads and updates their
-// status in the database. Runs every 60 seconds.
-func QueuePoll(svc *queue.Service, logger *slog.Logger) scheduler.Job {
+// status in the database. Runs at the given interval (minimum 10 seconds).
+func QueuePoll(svc *queue.Service, interval time.Duration, logger *slog.Logger) scheduler.Job {
+	if interval < 10*time.Second {
+		interval = 10 * time.Second
+	}
 	return scheduler.Job{
 		Name:     "queue_poll",
-		Interval: 60 * time.Second,
+		Interval: interval,
 		Fn: func(ctx context.Context) {
 			logger.Info("task started", "task", "queue_poll")
 			start := time.Now()

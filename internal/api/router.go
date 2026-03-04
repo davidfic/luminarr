@@ -18,6 +18,7 @@ import (
 	"github.com/davidfic/luminarr/internal/config"
 	"github.com/davidfic/luminarr/internal/core/blocklist"
 	"github.com/davidfic/luminarr/internal/core/downloader"
+	"github.com/davidfic/luminarr/internal/core/downloadhandling"
 	"github.com/davidfic/luminarr/internal/core/health"
 	"github.com/davidfic/luminarr/internal/core/indexer"
 	"github.com/davidfic/luminarr/internal/core/library"
@@ -54,6 +55,7 @@ type RouterConfig struct {
 	NotificationService      *notification.Service
 	HealthService            *health.Service
 	MediaManagementService   *mediamanagement.Service
+	DownloadHandlingService  *downloadhandling.Service
 	RadarrImportService      *radarrimport.Service
 	WSHub                    *ws.Hub
 }
@@ -190,6 +192,10 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	if cfg.MediaManagementService != nil {
 		v1.RegisterMediaManagementRoutes(humaAPI, cfg.MediaManagementService)
+	}
+
+	if cfg.DownloadHandlingService != nil {
+		v1.RegisterDownloadHandlingRoutes(humaAPI, cfg.DownloadHandlingService)
 	}
 
 	if cfg.RadarrImportService != nil {

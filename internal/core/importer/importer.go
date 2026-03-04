@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/davidfic/luminarr/internal/core/downloadhandling"
 	"github.com/davidfic/luminarr/internal/core/mediamanagement"
 	"github.com/davidfic/luminarr/internal/core/quality"
 	"github.com/davidfic/luminarr/internal/core/renamer"
@@ -43,11 +44,12 @@ type Service struct {
 	bus    *events.Bus
 	logger *slog.Logger
 	mm     *mediamanagement.Service
+	dh     *downloadhandling.Service
 }
 
 // NewService creates a new Service.
-func NewService(q dbsqlite.Querier, bus *events.Bus, logger *slog.Logger, mm *mediamanagement.Service) *Service {
-	return &Service{q: q, bus: bus, logger: logger, mm: mm}
+func NewService(q dbsqlite.Querier, bus *events.Bus, logger *slog.Logger, mm *mediamanagement.Service, dh *downloadhandling.Service) *Service {
+	return &Service{q: q, bus: bus, logger: logger, mm: mm, dh: dh}
 }
 
 // Subscribe registers the importer handler on the event bus.
@@ -56,6 +58,18 @@ func (s *Service) Subscribe() {
 	s.bus.Subscribe(func(ctx context.Context, e events.Event) {
 		if e.Type != events.TypeDownloadDone {
 			return
+		}
+		// Respect the "Enable Completed Download Handling" toggle.
+		if s.dh != nil {
+			dhs, err := s.dh.Get(ctx)
+			if err != nil {
+				s.logger.Warn("import: failed to load download handling settings, skipping import", "error", err)
+				return
+			}
+			if !dhs.EnableCompleted {
+				s.logger.Debug("import: completed download handling disabled, skipping")
+				return
+			}
 		}
 		grabID, _ := e.Data["grab_id"].(string)
 		contentPath, _ := e.Data["content_path"].(string)

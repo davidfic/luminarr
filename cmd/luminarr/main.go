@@ -17,6 +17,7 @@ import (
 	"github.com/davidfic/luminarr/internal/config"
 	"github.com/davidfic/luminarr/internal/core/blocklist"
 	"github.com/davidfic/luminarr/internal/core/downloader"
+	"github.com/davidfic/luminarr/internal/core/downloadhandling"
 	"github.com/davidfic/luminarr/internal/core/health"
 	"github.com/davidfic/luminarr/internal/core/importer"
 	"github.com/davidfic/luminarr/internal/core/indexer"
@@ -226,8 +227,9 @@ func run() error {
 	queueSvc := queue.NewService(queries, downloaderSvc, bus, logger)
 
 	mmSvc := mediamanagement.NewService(queries)
+	dhSvc := downloadhandling.NewService(queries)
 
-	importerSvc := importer.NewService(queries, bus, logger, mmSvc)
+	importerSvc := importer.NewService(queries, bus, logger, mmSvc, dhSvc)
 	importerSvc.Subscribe()
 
 	notifSvc := notification.NewService(queries, registry.Default)
@@ -239,8 +241,16 @@ func run() error {
 	radarrImportSvc := radarrimport.NewService(movieSvc, qualitySvc, librarySvc, indexerSvc, downloaderSvc)
 
 	// ── Scheduler ─────────────────────────────────────────────────────────────
+	// Load queue poll interval from download handling settings. Default to 60s
+	// on error so the scheduler always starts.
+	queuePollInterval, err := dhSvc.CheckInterval(context.Background())
+	if err != nil {
+		logger.Warn("failed to load download handling interval, using 60s default", "error", err)
+		queuePollInterval = 60 * time.Second
+	}
+
 	sched := scheduler.New(logger)
-	sched.Add(jobs.QueuePoll(queueSvc, logger))
+	sched.Add(jobs.QueuePoll(queueSvc, queuePollInterval, logger))
 	sched.Add(jobs.LibraryScan(librarySvc, logger))
 	sched.Add(jobs.RSSSync(indexerSvc, downloaderSvc, qualitySvc, queries, logger))
 	sched.Add(jobs.RefreshMetadata(movieSvc, queries, logger))
@@ -268,6 +278,7 @@ func run() error {
 		NotificationService:      notifSvc,
 		HealthService:            healthSvc,
 		MediaManagementService:   mmSvc,
+		DownloadHandlingService:  dhSvc,
 		RadarrImportService:      radarrImportSvc,
 		WSHub:                    wsHub,
 	})
