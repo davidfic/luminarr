@@ -41,6 +41,7 @@ const mainNav: NavItem[] = [
 
 const settingsNav: NavItem[] = [
   { to: "/settings/libraries",         icon: Library,          label: "Libraries" },
+  { to: "/settings/media-management",  icon: Film,             label: "Media Management" },
   { to: "/settings/quality-profiles",   icon: SlidersHorizontal, label: "Quality Profiles" },
   { to: "/settings/quality-definitions", icon: Gauge,           label: "Quality Definitions" },
   { to: "/settings/indexers",          icon: Search,           label: "Indexers" },

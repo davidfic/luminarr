@@ -15,7 +15,7 @@ type Settings struct {
 	RenameMovies           bool
 	StandardMovieFormat    string
 	MovieFolderFormat      string
-	ColonReplacement       string   // "delete" | "dash" | "space-dash" | "smart"
+	ColonReplacement       string // "delete" | "dash" | "space-dash" | "smart"
 	ImportExtraFiles       bool
 	ExtraFileExtensions    []string // parsed from comma-separated DB string
 	UnmonitorDeletedMovies bool

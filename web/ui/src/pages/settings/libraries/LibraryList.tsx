@@ -10,6 +10,7 @@ import {
 } from "@/api/libraries";
 import { useLookupMovies } from "@/api/movies";
 import { useQualityProfiles } from "@/api/quality-profiles";
+import { useMediaManagement } from "@/api/media-management";
 import { DirPicker } from "@/components/DirPicker";
 import type { Library, LibraryRequest, DiskFile, TMDBResult } from "@/types";
 
@@ -48,10 +49,12 @@ interface FormState {
   root_path: string;
   default_quality_profile_id: string;
   min_free_space_gb: string; // string for controlled input, parsed on submit
+  naming_format: string;
+  folder_format: string;
 }
 
 function emptyForm(): FormState {
-  return { name: "", root_path: "", default_quality_profile_id: "", min_free_space_gb: "0" };
+  return { name: "", root_path: "", default_quality_profile_id: "", min_free_space_gb: "0", naming_format: "", folder_format: "" };
 }
 
 function libraryToForm(lib: Library): FormState {
@@ -60,6 +63,8 @@ function libraryToForm(lib: Library): FormState {
     root_path: lib.root_path,
     default_quality_profile_id: lib.default_quality_profile_id ?? "",
     min_free_space_gb: String(lib.min_free_space_gb),
+    naming_format: lib.naming_format ?? "",
+    folder_format: lib.folder_format ?? "",
   };
 }
 
@@ -69,6 +74,8 @@ function formToRequest(f: FormState): LibraryRequest {
     root_path: f.root_path.trim(),
     default_quality_profile_id: f.default_quality_profile_id || undefined,
     min_free_space_gb: parseInt(f.min_free_space_gb, 10) || 0,
+    naming_format: f.naming_format.trim() || undefined,
+    folder_format: f.folder_format.trim() || undefined,
   };
 }
 
@@ -87,6 +94,7 @@ function LibraryModal({ editing, onClose }: LibraryModalProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const { data: profiles } = useQualityProfiles();
+  const { data: mm } = useMediaManagement();
   const createLib = useCreateLibrary();
   const updateLib = useUpdateLibrary();
 
@@ -246,6 +254,30 @@ function LibraryModal({ editing, onClose }: LibraryModalProps) {
                 onChange={(e) => set("min_free_space_gb", e.currentTarget.value)}
                 onFocus={onInputFocus}
                 onBlur={onInputBlur}
+              />
+            </div>
+
+            <div style={fieldStyle}>
+              <label style={labelStyle}>File Naming Format Override</label>
+              <input
+                style={{ ...inputStyle, fontFamily: "var(--font-family-mono)", fontSize: 12 }}
+                value={form.naming_format}
+                onChange={(e) => set("naming_format", e.currentTarget.value)}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
+                placeholder={mm?.standard_movie_format ?? "Leave blank to use global default"}
+              />
+            </div>
+
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Folder Format Override</label>
+              <input
+                style={{ ...inputStyle, fontFamily: "var(--font-family-mono)", fontSize: 12 }}
+                value={form.folder_format}
+                onChange={(e) => set("folder_format", e.currentTarget.value)}
+                onFocus={onInputFocus}
+                onBlur={onInputBlur}
+                placeholder={mm?.movie_folder_format ?? "Leave blank to use global default"}
               />
             </div>
           </div>

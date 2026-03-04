@@ -144,6 +144,7 @@ export interface Library {
   default_quality_profile_id?: string;
   min_free_space_gb: number;
   naming_format?: string;
+  folder_format?: string;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -162,8 +163,21 @@ export interface LibraryRequest {
   root_path: string;
   default_quality_profile_id?: string;
   naming_format?: string;
+  folder_format?: string;
   min_free_space_gb?: number;
   tags?: string[];
+}
+
+// ── Media Management ────────────────────────────────────────────────────────
+
+export interface MediaManagement {
+  rename_movies: boolean;
+  standard_movie_format: string;
+  movie_folder_format: string;
+  colon_replacement: "delete" | "dash" | "space-dash" | "smart";
+  import_extra_files: boolean;
+  extra_file_extensions: string;
+  unmonitor_deleted_movies: boolean;
 }
 
 // ── Library disk import ────────────────────────────────────────────────────
