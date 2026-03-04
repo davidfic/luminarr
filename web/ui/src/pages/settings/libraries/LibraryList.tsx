@@ -463,7 +463,7 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
           if (cancelled) break;
           const best = pickBestMatch(results, row.file.parsed_title, row.file.parsed_year);
           if (best) {
-            updateRow(path, { match: best, autoMatched: true, autoMatchLoading: false, selected: true });
+            updateRow(path, { match: best, autoMatched: true, autoMatchLoading: false });
           } else {
             updateRow(path, { autoMatchLoading: false });
           }
