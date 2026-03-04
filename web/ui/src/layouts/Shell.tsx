@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  BarChart2,
   Menu,
   X,
 } from "lucide-react";
@@ -35,6 +36,7 @@ const mainNav: NavItem[] = [
   { to: "/",          icon: LayoutDashboard, label: "Dashboard" },
   { to: "/calendar",  icon: CalendarDays,    label: "Calendar" },
   { to: "/wanted",    icon: Bookmark,        label: "Wanted" },
+  { to: "/stats",     icon: BarChart2,        label: "Statistics" },
   { to: "/queue",     icon: Download,        label: "Queue" },
   { to: "/history",   icon: History,         label: "History" },
 ];

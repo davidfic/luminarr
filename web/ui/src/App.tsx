@@ -19,6 +19,7 @@ import MediaManagementPage from "@/pages/settings/media-management/MediaManageme
 import HistoryPage from "@/pages/history/HistoryPage";
 import WantedPage from "@/pages/wanted/WantedPage";
 import CalendarPage from "@/pages/calendar/CalendarPage";
+import StatsPage from "@/pages/stats/StatsPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +43,7 @@ export default function App() {
               <Route path="history" element={<ErrorBoundary><HistoryPage /></ErrorBoundary>} />
               <Route path="calendar" element={<ErrorBoundary><CalendarPage /></ErrorBoundary>} />
               <Route path="wanted" element={<ErrorBoundary><WantedPage /></ErrorBoundary>} />
+              <Route path="stats" element={<ErrorBoundary><StatsPage /></ErrorBoundary>} />
               <Route path="settings">
                 <Route path="libraries" element={<ErrorBoundary><LibraryList /></ErrorBoundary>} />
                 <Route path="quality-profiles" element={<ErrorBoundary><QualityProfileList /></ErrorBoundary>} />

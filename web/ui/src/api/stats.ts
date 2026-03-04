@@ -1,0 +1,74 @@
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "./client";
+
+export interface CollectionStats {
+  total_movies: number;
+  monitored: number;
+  with_file: number;
+  missing: number;
+  needs_upgrade: number;
+  recently_added: number;
+}
+
+export interface QualityBucket {
+  resolution: string;
+  source: string;
+  codec: string;
+  hdr: string;
+  count: number;
+}
+
+export interface StoragePoint {
+  captured_at: string;
+  total_bytes: number;
+  file_count: number;
+}
+
+export interface StorageStats {
+  total_bytes: number;
+  file_count: number;
+  trend: StoragePoint[];
+}
+
+export interface IndexerStat {
+  indexer_id: string;
+  indexer_name: string;
+  grab_count: number;
+  success_rate: number;
+}
+
+export interface GrabStats {
+  total_grabs: number;
+  successful: number;
+  failed: number;
+  success_rate: number;
+  top_indexers: IndexerStat[];
+}
+
+export function useCollectionStats() {
+  return useQuery({
+    queryKey: ["stats", "collection"],
+    queryFn: () => apiFetch<CollectionStats>("/stats/collection"),
+  });
+}
+
+export function useQualityStats() {
+  return useQuery({
+    queryKey: ["stats", "quality"],
+    queryFn: () => apiFetch<QualityBucket[]>("/stats/quality"),
+  });
+}
+
+export function useStorageStats() {
+  return useQuery({
+    queryKey: ["stats", "storage"],
+    queryFn: () => apiFetch<StorageStats>("/stats/storage"),
+  });
+}
+
+export function useGrabStats() {
+  return useQuery({
+    queryKey: ["stats", "grabs"],
+    queryFn: () => apiFetch<GrabStats>("/stats/grabs"),
+  });
+}
