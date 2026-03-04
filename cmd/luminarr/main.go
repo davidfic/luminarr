@@ -166,6 +166,20 @@ func run() error {
 		logger.Info("Claude API key not configured — AI features disabled, using rule-based fallbacks")
 	}
 
+	// ── Database restore staging check ───────────────────────────────────────
+	// If a restore file exists (written by the /api/v1/system/restore endpoint),
+	// swap it in before opening the database.
+	if cfg.Database.Path != "" {
+		stagingPath := cfg.Database.Path + ".restore"
+		if _, statErr := os.Stat(stagingPath); statErr == nil {
+			if renameErr := os.Rename(stagingPath, cfg.Database.Path); renameErr == nil {
+				logger.Info("database restored from backup")
+			} else {
+				logger.Warn("failed to swap restore file into place", "error", renameErr)
+			}
+		}
+	}
+
 	// ── Database ──────────────────────────────────────────────────────────────
 	database, err := db.Open(cfg.Database)
 	if err != nil {
@@ -233,6 +247,7 @@ func run() error {
 		Auth:                cfg.Auth.APIKey,
 		Logger:              logger,
 		StartTime:           startTime,
+		DB:                  database.SQL,
 		DBType:              database.Driver,
 		DBPath:              cfg.Database.Path,
 		ConfigFile:          cfg.ConfigFile,

@@ -2,6 +2,7 @@ package api
 
 import (
 	"crypto/subtle"
+	"database/sql"
 	"log/slog"
 	"net/http"
 	"time"
@@ -35,6 +36,7 @@ type RouterConfig struct {
 	Auth                config.Secret
 	Logger              *slog.Logger
 	StartTime           time.Time
+	DB                  *sql.DB
 	DBType              string
 	DBPath              string
 	ConfigFile          string
@@ -69,6 +71,23 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	// auth middleware does not intercept the upgrade request.
 	if cfg.WSHub != nil {
 		r.Get("/api/v1/ws", cfg.WSHub.ServeHTTP)
+	}
+
+	// Backup / restore — registered directly on chi (binary body/response, not JSON).
+	// Auth is enforced via the same constant-time key comparison as huma middleware.
+	if cfg.DB != nil && cfg.DBPath != "" {
+		authKey := []byte(cfg.Auth.Value())
+		withKeyAuth := func(next http.HandlerFunc) http.HandlerFunc {
+			return func(w http.ResponseWriter, r *http.Request) {
+				if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Api-Key")), authKey) != 1 {
+					http.Error(w, `{"status":401,"title":"Unauthorized"}`, http.StatusUnauthorized)
+					return
+				}
+				next(w, r)
+			}
+		}
+		r.Get("/api/v1/system/backup", withKeyAuth(v1.BackupHandler(cfg.DB, cfg.DBPath, cfg.Logger)))
+		r.Post("/api/v1/system/restore", withKeyAuth(v1.RestoreHandler(cfg.DBPath, cfg.Logger)))
 	}
 
 	// Unauthenticated health check for load balancers / container probes.
@@ -147,7 +166,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	}
 
 	if cfg.QueueService != nil {
-		v1.RegisterQueueRoutes(humaAPI, cfg.QueueService)
+		v1.RegisterQueueRoutes(humaAPI, cfg.QueueService, cfg.BlocklistService)
 	}
 
 	if cfg.Scheduler != nil {
@@ -167,6 +186,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	}
 
 	v1.RegisterFilesystemRoutes(humaAPI)
+	v1.RegisterParseRoutes(humaAPI)
 
 	// Serve the embedded React SPA. This handler serves static files when they
 	// exist (assets, favicon, etc.) and falls back to index.html for all other

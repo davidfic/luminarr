@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -23,7 +24,9 @@ type historyItemBody struct {
 }
 
 type historyListInput struct {
-	Limit int `query:"limit" default:"100" minimum:"1" maximum:"1000"`
+	Limit          int    `query:"limit"           default:"100" minimum:"1" maximum:"1000"`
+	DownloadStatus string `query:"download_status" doc:"Filter by status: completed, failed, queued, downloading, paused, removed"`
+	Protocol       string `query:"protocol"        doc:"Filter by protocol: torrent, nzb"`
 }
 
 type historyListOutput struct {
@@ -44,14 +47,27 @@ func RegisterHistoryRoutes(api huma.API, svc *indexer.Service) {
 		if limit == 0 {
 			limit = 100
 		}
-		rows, err := svc.ListHistory(ctx, limit)
+		// Fetch with a higher cap when filters are active, to avoid filtering
+		// on an already-truncated result set.
+		fetchLimit := limit
+		if input.DownloadStatus != "" || input.Protocol != "" {
+			fetchLimit = 1000
+		}
+		rows, err := svc.ListHistory(ctx, fetchLimit)
 		if err != nil {
 			return nil, huma.NewError(http.StatusInternalServerError, "failed to list history", err)
 		}
-		items := make([]*historyItemBody, len(rows))
-		for i, r := range rows {
+
+		items := make([]*historyItemBody, 0, len(rows))
+		for _, r := range rows {
+			if input.DownloadStatus != "" && !strings.EqualFold(r.DownloadStatus, input.DownloadStatus) {
+				continue
+			}
+			if input.Protocol != "" && !strings.EqualFold(r.Protocol, input.Protocol) {
+				continue
+			}
 			grabbedAt, _ := time.Parse(time.RFC3339, r.GrabbedAt)
-			items[i] = &historyItemBody{
+			items = append(items, &historyItemBody{
 				ID:                r.ID,
 				MovieID:           r.MovieID,
 				ReleaseTitle:      r.ReleaseTitle,
@@ -61,6 +77,9 @@ func RegisterHistoryRoutes(api huma.API, svc *indexer.Service) {
 				Size:              r.Size,
 				DownloadStatus:    r.DownloadStatus,
 				GrabbedAt:         grabbedAt,
+			})
+			if len(items) == limit {
+				break
 			}
 		}
 		return &historyListOutput{Body: items}, nil

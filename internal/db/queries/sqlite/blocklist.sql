@@ -21,3 +21,6 @@ DELETE FROM blocklist WHERE id = ?;
 
 -- name: ClearBlocklist :exec
 DELETE FROM blocklist;
+
+-- name: IsBlocklistedByTitle :one
+SELECT COUNT(*) FROM blocklist WHERE release_title = ?;

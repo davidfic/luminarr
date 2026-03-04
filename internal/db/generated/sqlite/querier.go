@@ -44,6 +44,7 @@ type Querier interface {
 	GetNotificationConfig(ctx context.Context, id string) (NotificationConfig, error)
 	GetQualityProfile(ctx context.Context, id string) (QualityProfile, error)
 	IsBlocklisted(ctx context.Context, releaseGuid string) (int64, error)
+	IsBlocklistedByTitle(ctx context.Context, releaseTitle string) (int64, error)
 	ListActiveGrabs(ctx context.Context) ([]GrabHistory, error)
 	ListBlocklist(ctx context.Context, arg ListBlocklistParams) ([]ListBlocklistRow, error)
 	ListDownloadClientConfigs(ctx context.Context) ([]DownloadClientConfig, error)

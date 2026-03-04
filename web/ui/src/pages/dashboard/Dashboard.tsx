@@ -1,11 +1,13 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { LayoutGrid, List } from "lucide-react";
+import { toast } from "sonner";
 import {
   useMovies,
   useDeleteMovie,
   useAddMovie,
   useLookupMovies,
+  useUpdateMovie,
 } from "@/api/movies";
 import { useLibraries } from "@/api/libraries";
 import { useQualityProfiles } from "@/api/quality-profiles";
@@ -70,7 +72,17 @@ function StatusBadge({ status }: { status: string }) {
 
 // ── PosterCard ────────────────────────────────────────────────────────────────
 
-function PosterCard({ movie }: { movie: Movie }) {
+function PosterCard({
+  movie,
+  selectionMode,
+  isSelected,
+  onToggle,
+}: {
+  movie: Movie;
+  selectionMode: boolean;
+  isSelected: boolean;
+  onToggle: (id: string) => void;
+}) {
   const [hovered, setHovered] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const del = useDeleteMovie();
@@ -78,11 +90,13 @@ function PosterCard({ movie }: { movie: Movie }) {
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => !selectionMode && setHovered(true)}
       onMouseLeave={() => {
         setHovered(false);
         setConfirming(false);
       }}
+      onClick={() => selectionMode && onToggle(movie.id)}
+      style={selectionMode ? { cursor: "pointer" } : undefined}
     >
       {/* Poster */}
       <div
@@ -231,6 +245,45 @@ function PosterCard({ movie }: { movie: Movie }) {
           </div>
         )}
 
+        {/* Selection overlay */}
+        {selectionMode && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: isSelected
+                ? "color-mix(in srgb, var(--color-accent) 35%, transparent)"
+                : undefined,
+              border: isSelected
+                ? "2px solid var(--color-accent)"
+                : "2px solid transparent",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "flex-start",
+              padding: 6,
+              pointerEvents: "none",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                background: isSelected ? "var(--color-accent)" : "rgba(0,0,0,0.5)",
+                border: isSelected ? "none" : "2px solid rgba(255,255,255,0.6)",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                color: "white",
+                fontWeight: 700,
+              }}
+            >
+              {isSelected ? "✓" : ""}
+            </span>
+          </div>
+        )}
+
         {/* Corner badge — rendered after overlay so it sits on top of it.
             pointerEvents:none so it doesn't block the overlay's click handler. */}
         <div style={{ position: "absolute", top: 6, right: 6, pointerEvents: "none" }}>
@@ -312,7 +365,19 @@ function PosterCard({ movie }: { movie: Movie }) {
 
 // ── ListRow ───────────────────────────────────────────────────────────────────
 
-function ListRow({ movie, isLast }: { movie: Movie; isLast: boolean }) {
+function ListRow({
+  movie,
+  isLast,
+  selectionMode,
+  isSelected,
+  onToggle,
+}: {
+  movie: Movie;
+  isLast: boolean;
+  selectionMode: boolean;
+  isSelected: boolean;
+  onToggle: (id: string) => void;
+}) {
   const [confirming, setConfirming] = useState(false);
   const del = useDeleteMovie();
 
@@ -320,8 +385,27 @@ function ListRow({ movie, isLast }: { movie: Movie; isLast: boolean }) {
     <tr
       style={{
         borderBottom: isLast ? "none" : "1px solid var(--color-border-subtle)",
+        background: isSelected
+          ? "color-mix(in srgb, var(--color-accent) 8%, transparent)"
+          : undefined,
       }}
     >
+      {/* Selection checkbox */}
+      {selectionMode && (
+        <td style={{ padding: "0 0 0 16px", width: 32, height: 60 }}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggle(movie.id)}
+            style={{
+              width: 15,
+              height: 15,
+              cursor: "pointer",
+              accentColor: "var(--color-accent)",
+            }}
+          />
+        </td>
+      )}
       {/* Poster thumb */}
       <td style={{ padding: "0 0 0 16px", height: 60, width: 44 }}>
         <div
@@ -1169,6 +1253,306 @@ function AddMovieDialog({ onClose }: { onClose: () => void }) {
 
 // ── Skeleton grid ─────────────────────────────────────────────────────────────
 
+// ── BulkEditModal ─────────────────────────────────────────────────────────────
+
+type MonitoredChoice = "unchanged" | "yes" | "no";
+
+function BulkEditModal({
+  movies,
+  selectedIds,
+  onClose,
+}: {
+  movies: Movie[];
+  selectedIds: Set<string>;
+  onClose: () => void;
+}) {
+  const { data: profiles } = useQualityProfiles();
+  const updateMovie = useUpdateMovie();
+  const [monitoredVal, setMonitoredVal] = useState<MonitoredChoice>("unchanged");
+  const [profileId, setProfileId] = useState("");
+  const [minAvail, setMinAvail] = useState("");
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+
+  async function handleApply() {
+    const targets = movies.filter((m) => selectedIds.has(m.id));
+    setProgress({ done: 0, total: targets.length });
+    let done = 0;
+    let failed = 0;
+    for (const m of targets) {
+      try {
+        await updateMovie.mutateAsync({
+          id: m.id,
+          title: m.title,
+          monitored: monitoredVal === "unchanged" ? m.monitored : monitoredVal === "yes",
+          library_id: m.library_id,
+          quality_profile_id: profileId || m.quality_profile_id,
+          minimum_availability: minAvail || m.minimum_availability,
+        });
+        done++;
+      } catch {
+        failed++;
+      }
+      setProgress({ done: done + failed, total: targets.length });
+    }
+    if (failed > 0) {
+      toast.error(`${failed} update${failed > 1 ? "s" : ""} failed`);
+    } else {
+      toast.success(`Updated ${done} ${done === 1 ? "movie" : "movies"}`);
+    }
+    onClose();
+  }
+
+  const count = selectedIds.size;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 100,
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        style={{
+          background: "var(--color-bg-surface)",
+          border: "1px solid var(--color-border-default)",
+          borderRadius: 10,
+          width: 420,
+          maxWidth: "calc(100vw - 32px)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "16px 20px",
+            borderBottom: "1px solid var(--color-border-subtle)",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 15,
+              fontWeight: 600,
+              color: "var(--color-text-primary)",
+            }}
+          >
+            Edit {count} {count === 1 ? "movie" : "movies"}
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              fontSize: 16,
+              color: "var(--color-text-muted)",
+              cursor: "pointer",
+              padding: 4,
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Body */}
+        <div
+          style={{
+            padding: 20,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          {/* Monitored */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--color-text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 8,
+              }}
+            >
+              Monitored
+            </label>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["unchanged", "yes", "no"] as MonitoredChoice[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setMonitoredVal(v)}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 6,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    border: `1px solid ${monitoredVal === v ? "var(--color-accent)" : "var(--color-border-default)"}`,
+                    background:
+                      monitoredVal === v
+                        ? "color-mix(in srgb, var(--color-accent) 15%, transparent)"
+                        : "var(--color-bg-elevated)",
+                    color:
+                      monitoredVal === v
+                        ? "var(--color-accent)"
+                        : "var(--color-text-secondary)",
+                    fontWeight: monitoredVal === v ? 600 : 400,
+                  }}
+                >
+                  {v.charAt(0).toUpperCase() + v.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Quality Profile */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--color-text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 8,
+              }}
+            >
+              Quality Profile
+            </label>
+            <select
+              value={profileId}
+              onChange={(e) => setProfileId(e.currentTarget.value)}
+              style={{
+                width: "100%",
+                background: "var(--color-bg-elevated)",
+                border: "1px solid var(--color-border-default)",
+                borderRadius: 6,
+                padding: "7px 11px",
+                fontSize: 13,
+                color: "var(--color-text-primary)",
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              <option value="">Unchanged</option>
+              {profiles?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Min Availability */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--color-text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 8,
+              }}
+            >
+              Minimum Availability
+            </label>
+            <select
+              value={minAvail}
+              onChange={(e) => setMinAvail(e.currentTarget.value)}
+              style={{
+                width: "100%",
+                background: "var(--color-bg-elevated)",
+                border: "1px solid var(--color-border-default)",
+                borderRadius: 6,
+                padding: "7px 11px",
+                fontSize: 13,
+                color: "var(--color-text-primary)",
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              <option value="">Unchanged</option>
+              <option value="announced">Announced</option>
+              <option value="in_cinemas">In Cinemas</option>
+              <option value="released">Released</option>
+              <option value="tba">TBA</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: 10,
+            padding: "14px 20px",
+            borderTop: "1px solid var(--color-border-subtle)",
+          }}
+        >
+          {progress && (
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--color-text-muted)",
+                marginRight: "auto",
+              }}
+            >
+              Updating {progress.done}/{progress.total}…
+            </span>
+          )}
+          <button
+            onClick={onClose}
+            disabled={!!progress && progress.done < progress.total}
+            style={{
+              background: "none",
+              border: "1px solid var(--color-border-default)",
+              borderRadius: 6,
+              padding: "8px 16px",
+              fontSize: 13,
+              color: "var(--color-text-secondary)",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleApply}
+            disabled={!!progress}
+            style={{
+              background: progress ? "var(--color-bg-subtle)" : "var(--color-accent)",
+              color: progress ? "var(--color-text-muted)" : "var(--color-accent-fg)",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 18px",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: progress ? "not-allowed" : "pointer",
+            }}
+          >
+            {progress ? "Applying…" : "Apply"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Skeleton grid ─────────────────────────────────────────────────────────────
+
 function GridSkeleton() {
   return (
     <div
@@ -1220,6 +1604,23 @@ export default function Dashboard() {
   const [sortField, setSortField] = useState<SortField>("title");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [showAdd, setShowAdd] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+
+  function toggleSelectMode() {
+    setSelectionMode((v) => !v);
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const { data, isLoading, error } = useMovies({ per_page: 2000 });
   const { data: libraries } = useLibraries();
@@ -1340,30 +1741,50 @@ export default function Dashboard() {
             </p>
           )}
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          style={{
-            background: "var(--color-accent)",
-            color: "var(--color-accent-fg)",
-            border: "none",
-            borderRadius: 6,
-            padding: "8px 16px",
-            fontSize: 13,
-            fontWeight: 500,
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background =
-              "var(--color-accent-hover)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background =
-              "var(--color-accent)";
-          }}
-        >
-          + Add Movie
-        </button>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={toggleSelectMode}
+            style={{
+              background: selectionMode
+                ? "color-mix(in srgb, var(--color-accent) 15%, transparent)"
+                : "var(--color-bg-elevated)",
+              color: selectionMode
+                ? "var(--color-accent)"
+                : "var(--color-text-secondary)",
+              border: `1px solid ${selectionMode ? "var(--color-accent)" : "var(--color-border-default)"}`,
+              borderRadius: 6,
+              padding: "8px 16px",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            {selectionMode ? "Cancel Select" : "Select"}
+          </button>
+          <button
+            onClick={() => setShowAdd(true)}
+            style={{
+              background: "var(--color-accent)",
+              color: "var(--color-accent-fg)",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 16px",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "var(--color-accent-hover)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                "var(--color-accent)";
+            }}
+          >
+            + Add Movie
+          </button>
+        </div>
       </div>
 
       {/* Filter bar */}
@@ -1641,7 +2062,13 @@ export default function Dashboard() {
           }}
         >
           {filtered.map((movie) => (
-            <PosterCard key={movie.id} movie={movie} />
+            <PosterCard
+              key={movie.id}
+              movie={movie}
+              selectionMode={selectionMode}
+              isSelected={selectedIds.has(movie.id)}
+              onToggle={toggleSelect}
+            />
           ))}
         </div>
       ) : (
@@ -1663,6 +2090,7 @@ export default function Dashboard() {
                   borderBottom: "1px solid var(--color-border-subtle)",
                 }}
               >
+                {selectionMode && <th style={{ ...thStyle, width: 40 }} />}
                 <th style={thStyle} />
                 <th style={thStyle}>Title</th>
                 <th style={thStyle}>Year</th>
@@ -1678,6 +2106,9 @@ export default function Dashboard() {
                   key={movie.id}
                   movie={movie}
                   isLast={i === filtered.length - 1}
+                  selectionMode={selectionMode}
+                  isSelected={selectedIds.has(movie.id)}
+                  onToggle={toggleSelect}
                 />
               ))}
             </tbody>
@@ -1732,6 +2163,79 @@ export default function Dashboard() {
       )}
 
       {showAdd && <AddMovieDialog onClose={() => setShowAdd(false)} />}
+
+      {/* Sticky selection toolbar */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "var(--color-bg-elevated)",
+            border: "1px solid var(--color-border-default)",
+            borderRadius: 8,
+            padding: "12px 20px",
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+            zIndex: 50,
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 13,
+              color: "var(--color-text-primary)",
+              fontWeight: 500,
+            }}
+          >
+            {selectedIds.size} {selectedIds.size === 1 ? "movie" : "movies"} selected
+          </span>
+          <button
+            onClick={() => setShowBulkEdit(true)}
+            style={{
+              background: "var(--color-accent)",
+              color: "var(--color-accent-fg)",
+              border: "none",
+              borderRadius: 6,
+              padding: "7px 16px",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            Edit Selected
+          </button>
+          <button
+            onClick={toggleSelectMode}
+            style={{
+              background: "transparent",
+              border: "1px solid var(--color-border-default)",
+              borderRadius: 6,
+              padding: "7px 14px",
+              fontSize: 13,
+              color: "var(--color-text-secondary)",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {showBulkEdit && (
+        <BulkEditModal
+          movies={data?.movies ?? []}
+          selectedIds={selectedIds}
+          onClose={() => {
+            setShowBulkEdit(false);
+            setSelectionMode(false);
+            setSelectedIds(new Set());
+          }}
+        />
+      )}
     </div>
   );
 }

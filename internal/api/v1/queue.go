@@ -2,11 +2,13 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/davidfic/luminarr/internal/core/blocklist"
 	"github.com/davidfic/luminarr/internal/core/queue"
 )
 
@@ -36,6 +38,12 @@ type queueDeleteInput struct {
 
 type queueDeleteOutput struct{}
 
+type queueBlocklistInput struct {
+	ID string `path:"id" doc:"Grab history UUID"`
+}
+
+type queueBlocklistOutput struct{}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 func queueItemToBody(item queue.Item) *queueItemBody {
@@ -56,7 +64,7 @@ func queueItemToBody(item queue.Item) *queueItemBody {
 // ── Route registration ───────────────────────────────────────────────────────
 
 // RegisterQueueRoutes registers the /api/v1/queue endpoints.
-func RegisterQueueRoutes(api huma.API, svc *queue.Service) {
+func RegisterQueueRoutes(api huma.API, svc *queue.Service, bl *blocklist.Service) {
 	// GET /api/v1/queue
 	huma.Register(api, huma.Operation{
 		OperationID: "get-queue",
@@ -89,5 +97,47 @@ func RegisterQueueRoutes(api huma.API, svc *queue.Service) {
 			return nil, huma.NewError(http.StatusInternalServerError, "failed to remove from queue", err)
 		}
 		return &queueDeleteOutput{}, nil
+	})
+
+	// POST /api/v1/queue/{id}/blocklist
+	// Removes the download from the client and adds the release to the blocklist
+	// so it won't be grabbed again. The caller should then trigger a manual search
+	// if a replacement release is desired.
+	huma.Register(api, huma.Operation{
+		OperationID:   "blocklist-queue-item",
+		Method:        http.MethodPost,
+		Path:          "/api/v1/queue/{id}/blocklist",
+		Summary:       "Blocklist a queued release and remove it from the download client",
+		Tags:          []string{"Queue"},
+		DefaultStatus: http.StatusNoContent,
+	}, func(ctx context.Context, input *queueBlocklistInput) (*queueBlocklistOutput, error) {
+		// Load the item from the active queue.
+		item, err := svc.GetQueueItem(ctx, input.ID)
+		if err != nil {
+			return nil, huma.NewError(http.StatusNotFound, fmt.Sprintf("queue item %q not found", input.ID), err)
+		}
+
+		// Remove from download client. Ignore error so the blocklist entry is
+		// still created even if the client call fails.
+		_ = svc.RemoveFromQueue(ctx, input.ID, false)
+
+		// Add to blocklist. Use a synthetic GUID (grab ID prefixed) since
+		// grab_history does not store the original indexer release GUID.
+		if bl != nil {
+			blErr := bl.Add(ctx,
+				item.MovieID,
+				"grab:"+item.GrabID,
+				item.ReleaseTitle,
+				"",
+				item.Protocol,
+				item.Size,
+				"blocklisted from queue",
+			)
+			if blErr != nil && blErr != blocklist.ErrAlreadyBlocklisted {
+				return nil, huma.NewError(http.StatusInternalServerError, "failed to add to blocklist", blErr)
+			}
+		}
+
+		return &queueBlocklistOutput{}, nil
 	})
 }

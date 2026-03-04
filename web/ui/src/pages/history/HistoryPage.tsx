@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useHistory } from "@/api/history";
 import { formatBytes } from "@/lib/utils";
@@ -102,7 +103,6 @@ function QualityBadge({ source, resolution }: { source?: string; resolution?: st
 function HistoryRow({ item, isLast }: { item: GrabHistory; isLast: boolean }) {
   return (
     <tr style={{ borderBottom: isLast ? "none" : "1px solid var(--color-border-subtle)" }}>
-      {/* Release title */}
       <td style={{ padding: "12px 20px", verticalAlign: "middle" }}>
         <Link
           to={`/movies/${item.movie_id}`}
@@ -122,103 +122,92 @@ function HistoryRow({ item, isLast }: { item: GrabHistory; isLast: boolean }) {
           {item.release_title}
         </Link>
       </td>
-
-      {/* Quality */}
       <td style={{ padding: "12px 20px", verticalAlign: "middle", whiteSpace: "nowrap" }}>
         <QualityBadge source={item.release_source} resolution={item.release_resolution} />
       </td>
-
-      {/* Protocol */}
-      <td
-        style={{
-          padding: "12px 20px",
-          verticalAlign: "middle",
-          fontSize: 12,
-          color: "var(--color-text-muted)",
-          textTransform: "capitalize",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <td style={{ padding: "12px 20px", verticalAlign: "middle", fontSize: 12, color: "var(--color-text-muted)", textTransform: "capitalize", whiteSpace: "nowrap" }}>
         {item.protocol || "—"}
       </td>
-
-      {/* Size */}
-      <td
-        style={{
-          padding: "12px 20px",
-          verticalAlign: "middle",
-          fontSize: 12,
-          color: "var(--color-text-muted)",
-          fontFamily: "var(--font-family-mono)",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <td style={{ padding: "12px 20px", verticalAlign: "middle", fontSize: 12, color: "var(--color-text-muted)", fontFamily: "var(--font-family-mono)", whiteSpace: "nowrap" }}>
         {item.size > 0 ? formatBytes(item.size) : "—"}
       </td>
-
-      {/* Status */}
       <td style={{ padding: "12px 20px", verticalAlign: "middle", whiteSpace: "nowrap" }}>
         <StatusBadge status={item.download_status} />
       </td>
-
-      {/* Grabbed at */}
-      <td
-        style={{
-          padding: "12px 20px",
-          verticalAlign: "middle",
-          fontSize: 12,
-          color: "var(--color-text-muted)",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <td style={{ padding: "12px 20px", verticalAlign: "middle", fontSize: 12, color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
         {formatDate(item.grabbed_at)}
       </td>
     </tr>
   );
 }
 
+// ── Filter bar ───────────────────────────────────────────────────────────────
+
+const SELECT_STYLE: React.CSSProperties = {
+  background: "var(--color-bg-elevated)",
+  border: "1px solid var(--color-border-default)",
+  borderRadius: 5,
+  padding: "5px 10px",
+  fontSize: 12,
+  color: "var(--color-text-primary)",
+  cursor: "pointer",
+  outline: "none",
+};
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
-  const { data, isLoading, error } = useHistory(200);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [protocolFilter, setProtocolFilter] = useState("");
+
+  const { data, isLoading, error } = useHistory({
+    limit: 500,
+    download_status: statusFilter || undefined,
+    protocol: protocolFilter || undefined,
+  });
   const items = data ?? [];
 
   return (
     <div style={{ padding: 24, maxWidth: 1200, display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Header */}
-      <div>
-        <h1
-          style={{
-            margin: 0,
-            fontSize: 20,
-            fontWeight: 600,
-            color: "var(--color-text-primary)",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          History
-        </h1>
-        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--color-text-secondary)" }}>
-          {isLoading
-            ? "Loading…"
-            : error
-            ? "Failed to load history."
-            : items.length === 0
-            ? "No grabs recorded yet."
-            : `${items.length} grab${items.length !== 1 ? "s" : ""}`}
-        </p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>
+            History
+          </h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--color-text-secondary)" }}>
+            {isLoading ? "Loading…" : error ? "Failed to load history." : items.length === 0 ? "No grabs recorded yet." : `${items.length} grab${items.length !== 1 ? "s" : ""}`}
+          </p>
+        </div>
+
+        {/* Filters */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={SELECT_STYLE}>
+            <option value="">All statuses</option>
+            <option value="completed">Completed</option>
+            <option value="downloading">Downloading</option>
+            <option value="queued">Queued</option>
+            <option value="failed">Failed</option>
+            <option value="removed">Removed</option>
+          </select>
+          <select value={protocolFilter} onChange={(e) => setProtocolFilter(e.target.value)} style={SELECT_STYLE}>
+            <option value="">All protocols</option>
+            <option value="torrent">Torrent</option>
+            <option value="nzb">NZB</option>
+          </select>
+          {(statusFilter || protocolFilter) && (
+            <button
+              onClick={() => { setStatusFilter(""); setProtocolFilter(""); }}
+              style={{ ...SELECT_STYLE, color: "var(--color-text-muted)", border: "none", background: "none" }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table card */}
-      <div
-        style={{
-          background: "var(--color-bg-surface)",
-          border: "1px solid var(--color-border-subtle)",
-          borderRadius: 8,
-          boxShadow: "var(--shadow-card)",
-          overflow: "hidden",
-        }}
-      >
+      <div style={{ background: "var(--color-bg-surface)", border: "1px solid var(--color-border-subtle)", borderRadius: 8, boxShadow: "var(--shadow-card)", overflow: "hidden" }}>
         {isLoading ? (
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
             {[1, 2, 3, 4].map((i) => (
@@ -230,40 +219,21 @@ export default function HistoryPage() {
             Failed to load history. Please try again.
           </div>
         ) : items.length === 0 ? (
-          <div
-            style={{
-              padding: 48,
-              textAlign: "center",
-              color: "var(--color-text-muted)",
-              fontSize: 14,
-            }}
-          >
+          <div style={{ padding: 48, textAlign: "center", color: "var(--color-text-muted)", fontSize: 14 }}>
             <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>⏳</div>
             <div style={{ fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: 4 }}>
-              No history yet
+              {statusFilter || protocolFilter ? "No results match the current filters." : "No history yet"}
             </div>
-            <div style={{ fontSize: 12 }}>
-              Grab a release from a movie detail page to get started.
-            </div>
+            {!statusFilter && !protocolFilter && (
+              <div style={{ fontSize: 12 }}>Grab a release from a movie detail page to get started.</div>
+            )}
           </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
                 {["Release", "Quality", "Protocol", "Size", "Status", "Grabbed"].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      textAlign: "left",
-                      padding: "8px 20px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: "var(--color-text-muted)",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <th key={h} style={{ textAlign: "left", padding: "8px 20px", fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>
                     {h}
                   </th>
                 ))}

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import {
   useSystemStatus,
   useSystemHealth,
@@ -637,6 +638,162 @@ function ConfigSection() {
   );
 }
 
+// ── Section 5: Backup & Restore ───────────────────────────────────────────────
+
+function BackupSection() {
+  const [downloading, setDownloading] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const key = ((window as unknown) as Record<string, unknown>).__LUMINARR_KEY__ as string;
+      const res = await fetch("/api/v1/system/backup", {
+        headers: { "X-Api-Key": key },
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const date = new Date().toISOString().split("T")[0];
+      a.href = url;
+      a.download = `luminarr-backup-${date}.db`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function handleRestore(file: File) {
+    setRestoreMsg(null);
+    setRestoreError(null);
+    try {
+      const key = ((window as unknown) as Record<string, unknown>).__LUMINARR_KEY__ as string;
+      const res = await fetch("/api/v1/system/restore", {
+        method: "POST",
+        headers: {
+          "X-Api-Key": key,
+          "Content-Type": "application/octet-stream",
+        },
+        body: file,
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      setRestoreMsg("Restore staged — restart Luminarr to apply the backup.");
+    } catch (e) {
+      setRestoreError((e as Error).message);
+    }
+  }
+
+  const btnStyle: React.CSSProperties = {
+    background: "var(--color-bg-elevated)",
+    border: "1px solid var(--color-border-default)",
+    borderRadius: 6,
+    padding: "7px 14px",
+    fontSize: 13,
+    color: "var(--color-text-secondary)",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+  };
+
+  return (
+    <div style={card}>
+      <p style={sectionHeader}>Backup & Restore</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Download */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ flex: 1 }}>
+            <span
+              style={{
+                display: "block",
+                fontSize: 13,
+                fontWeight: 500,
+                color: "var(--color-text-primary)",
+                marginBottom: 4,
+              }}
+            >
+              Download Backup
+            </span>
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+              Downloads a consistent snapshot of the database.
+            </span>
+          </div>
+          <button
+            onClick={() => { void handleDownload(); }}
+            disabled={downloading}
+            style={{
+              ...btnStyle,
+              color: downloading ? "var(--color-text-muted)" : "var(--color-text-secondary)",
+              cursor: downloading ? "not-allowed" : "pointer",
+            }}
+          >
+            {downloading ? "Preparing…" : "Download Backup"}
+          </button>
+        </div>
+
+        {/* Restore */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ flex: 1 }}>
+            <span
+              style={{
+                display: "block",
+                fontSize: 13,
+                fontWeight: 500,
+                color: "var(--color-text-primary)",
+                marginBottom: 4,
+              }}
+            >
+              Restore from Backup
+            </span>
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+              Select a .db backup file. Changes take effect after restart.
+            </span>
+          </div>
+          <label
+            style={{ ...btnStyle, cursor: "pointer", display: "inline-block" }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLLabelElement).style.background = "var(--color-bg-subtle)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLLabelElement).style.background = "var(--color-bg-elevated)";
+            }}
+          >
+            Choose File
+            <input
+              type="file"
+              accept=".db"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.currentTarget.files?.[0];
+                if (file) void handleRestore(file);
+                // Reset so same file can be chosen again
+                e.currentTarget.value = "";
+              }}
+            />
+          </label>
+        </div>
+
+        {restoreMsg && (
+          <p style={{ margin: 0, fontSize: 13, color: "var(--color-success)" }}>
+            {restoreMsg}
+          </p>
+        )}
+        {restoreError && (
+          <p style={{ margin: 0, fontSize: 13, color: "var(--color-danger)" }}>
+            {restoreError}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SystemPage() {
@@ -666,6 +823,7 @@ export default function SystemPage() {
         <HealthSection />
         <TasksSection />
         <ConfigSection />
+        <BackupSection />
       </div>
     </div>
   );

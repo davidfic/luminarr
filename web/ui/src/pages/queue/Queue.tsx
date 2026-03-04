@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQueue, useRemoveFromQueue } from "@/api/queue";
+import { useQueue, useRemoveFromQueue, useBlocklistQueueItem } from "@/api/queue";
 import { formatBytes } from "@/lib/utils";
 import type { QueueItem } from "@/types";
 
@@ -122,6 +122,7 @@ function QueueRow({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
   const remove = useRemoveFromQueue();
+  const blocklist = useBlocklistQueueItem();
 
   const pct = progressPct(item);
 
@@ -272,20 +273,39 @@ function QueueRow({
 
         {/* Actions */}
         <td style={{ padding: "12px 20px", verticalAlign: "middle", textAlign: "right", whiteSpace: "nowrap" }}>
-          <button
-            onClick={() => setConfirmRemove(true)}
-            style={{
-              background: "transparent",
-              border: "1px solid var(--color-border-default)",
-              borderRadius: 5,
-              padding: "3px 10px",
-              fontSize: 12,
-              color: "var(--color-text-secondary)",
-              cursor: "pointer",
-            }}
-          >
-            Remove
-          </button>
+          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            <button
+              onClick={() => blocklist.mutate(item.id)}
+              disabled={blocklist.isPending}
+              title="Blocklist this release and remove from queue"
+              style={{
+                background: "transparent",
+                border: "1px solid var(--color-border-default)",
+                borderRadius: 5,
+                padding: "3px 10px",
+                fontSize: 12,
+                color: "var(--color-warning, #f59e0b)",
+                cursor: blocklist.isPending ? "not-allowed" : "pointer",
+                opacity: blocklist.isPending ? 0.6 : 1,
+              }}
+            >
+              Blocklist
+            </button>
+            <button
+              onClick={() => setConfirmRemove(true)}
+              style={{
+                background: "transparent",
+                border: "1px solid var(--color-border-default)",
+                borderRadius: 5,
+                padding: "3px 10px",
+                fontSize: 12,
+                color: "var(--color-text-secondary)",
+                cursor: "pointer",
+              }}
+            >
+              Remove
+            </button>
+          </div>
         </td>
       </tr>
     </>

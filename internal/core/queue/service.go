@@ -80,6 +80,38 @@ func (s *Service) GetQueue(ctx context.Context) ([]Item, error) {
 	return items, nil
 }
 
+// GetQueueItem returns a single active queue item by its grab ID.
+// Returns an error if the item is not found in the active queue.
+func (s *Service) GetQueueItem(ctx context.Context, grabID string) (Item, error) {
+	grabs, err := s.q.ListActiveGrabs(ctx)
+	if err != nil {
+		return Item{}, fmt.Errorf("listing active grabs: %w", err)
+	}
+	for _, g := range grabs {
+		if g.ID != grabID {
+			continue
+		}
+		grabbedAt, _ := time.Parse(time.RFC3339, g.GrabbedAt)
+		item := Item{
+			GrabID:       g.ID,
+			MovieID:      g.MovieID,
+			ReleaseTitle: g.ReleaseTitle,
+			Protocol:     g.Protocol,
+			Size:         g.Size,
+			Status:       g.DownloadStatus,
+			GrabbedAt:    grabbedAt,
+		}
+		if g.ClientItemID != nil {
+			item.ClientItemID = *g.ClientItemID
+		}
+		if g.DownloadClientID != nil {
+			item.DownloadClientID = *g.DownloadClientID
+		}
+		return item, nil
+	}
+	return Item{}, fmt.Errorf("grab %q not found in active queue", grabID)
+}
+
 // RemoveFromQueue removes a download from the client and marks the grab as removed.
 // If deleteFiles is true the downloaded data is also deleted on disk.
 func (s *Service) RemoveFromQueue(ctx context.Context, grabID string, deleteFiles bool) error {

@@ -27,3 +27,16 @@ export function useRemoveFromQueue() {
     onError: (err) => toast.error((err as Error).message),
   });
 }
+
+export function useBlocklistQueueItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch<void>(`/queue/${id}/blocklist`, { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["queue"] });
+      toast.success("Blocklisted — use manual search to find another release");
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+}
