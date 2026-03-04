@@ -12,7 +12,7 @@ import { useLookupMovies } from "@/api/movies";
 import { useQualityProfiles } from "@/api/quality-profiles";
 import { useMediaManagement } from "@/api/media-management";
 import { DirPicker } from "@/components/DirPicker";
-import type { Library, LibraryRequest, DiskFile, TMDBResult } from "@/types";
+import type { Library, LibraryRequest, DiskFile, DiskFileTMDBMatch, TMDBResult } from "@/types";
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
 
@@ -370,6 +370,22 @@ function basename(path: string): string {
 
 // ── Auto-match helpers ────────────────────────────────────────────────────────
 
+/** Converts a pre-computed DB match into the TMDBResult shape used by the UI. */
+function dbMatchToResult(m: DiskFileTMDBMatch | undefined): TMDBResult | null {
+  if (!m) return null;
+  return {
+    tmdb_id: m.tmdb_id,
+    title: m.title,
+    original_title: m.original_title,
+    year: m.year,
+    overview: "",
+    release_date: "",
+    poster_path: "",
+    backdrop_path: "",
+    popularity: 0,
+  };
+}
+
 function normalizeTitle(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
 }
@@ -421,17 +437,18 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
       const next = new Map(prev);
       for (const f of diskFiles) {
         if (!next.has(f.path)) {
+          const preMatch = dbMatchToResult(f.tmdb_match);
           next.set(f.path, {
             file: f,
             selected: false,
-            match: null,
+            match: preMatch,
             searchQuery: f.parsed_title + (f.parsed_year ? ` ${f.parsed_year}` : ""),
             searchOpen: false,
             searchResults: [],
             importing: false,
             imported: false,
             autoMatchLoading: false,
-            autoMatched: false,
+            autoMatched: !!preMatch,
           });
         }
       }
@@ -452,6 +469,7 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
     async function runAutoMatch() {
       for (const [path, row] of rows.entries()) {
         if (cancelled) break;
+        if (row.match) continue; // Already pre-matched from DB — skip live lookup
         if (!row.file.parsed_title.trim() || row.file.parsed_year === 0) continue;
 
         updateRow(path, { autoMatchLoading: true });

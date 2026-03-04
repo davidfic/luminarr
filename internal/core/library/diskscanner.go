@@ -16,6 +16,15 @@ type DiskFile struct {
 	SizeBytes   int64
 	ParsedTitle string
 	ParsedYear  int
+	TMDBMatch   *DiskFileTMDBMatch // nil if not yet matched
+}
+
+// DiskFileTMDBMatch holds the pre-computed TMDB match for a DiskFile.
+type DiskFileTMDBMatch struct {
+	TMDBID        int
+	Title         string
+	OriginalTitle string
+	Year          int
 }
 
 // videoExtensions is the set of file extensions recognised as video files.

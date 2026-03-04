@@ -100,7 +100,7 @@ func newIntegrationRouterFromDB(t *testing.T, q *dbsqlite.Queries) http.Handler 
 	registerTestPlugins(reg)
 
 	qualSvc := quality.NewService(q, bus)
-	libSvc := library.NewService(q, bus)
+	libSvc := library.NewService(q, bus, nil)
 	movieSvc := movie.NewService(q, nil /* no TMDB */, bus, logger)
 	idxSvc := indexer.NewService(q, reg, bus)
 	dlSvc := downloader.NewService(q, reg, bus)

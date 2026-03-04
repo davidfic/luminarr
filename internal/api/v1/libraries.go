@@ -75,11 +75,19 @@ type libraryDiskScanInput struct {
 	ID string `path:"id"`
 }
 
+type tmdbMatchBody struct {
+	TMDBID        int    `json:"tmdb_id"         doc:"TMDB movie ID"`
+	Title         string `json:"title"           doc:"TMDB movie title"`
+	OriginalTitle string `json:"original_title"  doc:"TMDB original title"`
+	Year          int    `json:"year"            doc:"Release year"`
+}
+
 type diskFileBody struct {
-	Path        string `json:"path"         doc:"Absolute path to the file"`
-	SizeBytes   int64  `json:"size_bytes"   doc:"File size in bytes"`
-	ParsedTitle string `json:"parsed_title" doc:"Title guessed from filename"`
-	ParsedYear  int    `json:"parsed_year"  doc:"Year guessed from filename; 0 if not found"`
+	Path        string         `json:"path"                   doc:"Absolute path to the file"`
+	SizeBytes   int64          `json:"size_bytes"             doc:"File size in bytes"`
+	ParsedTitle string         `json:"parsed_title"           doc:"Title guessed from filename"`
+	ParsedYear  int            `json:"parsed_year"            doc:"Year guessed from filename; 0 if not found"`
+	TMDBMatch   *tmdbMatchBody `json:"tmdb_match,omitempty"   doc:"Pre-computed TMDB match, if available"`
 }
 
 type libraryDiskScanOutput struct {
@@ -318,12 +326,21 @@ func RegisterLibraryRoutes(api huma.API, svc *library.Service, movieSvc *movie.S
 		}
 		bodies := make([]*diskFileBody, len(diskFiles))
 		for i, f := range diskFiles {
-			bodies[i] = &diskFileBody{
+			b := &diskFileBody{
 				Path:        f.Path,
 				SizeBytes:   f.SizeBytes,
 				ParsedTitle: f.ParsedTitle,
 				ParsedYear:  f.ParsedYear,
 			}
+			if f.TMDBMatch != nil {
+				b.TMDBMatch = &tmdbMatchBody{
+					TMDBID:        f.TMDBMatch.TMDBID,
+					Title:         f.TMDBMatch.Title,
+					OriginalTitle: f.TMDBMatch.OriginalTitle,
+					Year:          f.TMDBMatch.Year,
+				}
+			}
+			bodies[i] = b
 		}
 		return &libraryDiskScanOutput{Body: bodies}, nil
 	})
@@ -403,6 +420,9 @@ func RegisterLibraryRoutes(api huma.API, svc *library.Service, movieSvc *movie.S
 		if err := movieSvc.AttachFile(ctx, m.ID, input.Body.FilePath, sizeBytes, quality); err != nil {
 			return nil, huma.NewError(http.StatusInternalServerError, "failed to attach file to movie", err)
 		}
+
+		// Remove the candidate so it no longer appears in future disk scans.
+		_ = svc.DeleteCandidate(ctx, input.ID, input.Body.FilePath)
 
 		// Re-fetch to return the fully updated movie record.
 		updated, err := movieSvc.Get(ctx, m.ID)

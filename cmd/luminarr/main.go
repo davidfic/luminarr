@@ -213,13 +213,13 @@ func run() error {
 
 	qualitySvc := quality.NewService(queries, bus)
 	qualityDefSvc := quality.NewDefinitionService(queries)
-	librarySvc := library.NewService(queries, bus)
 
 	var tmdbClient movie.MetadataProvider
 	if !cfg.TMDB.APIKey.IsEmpty() {
 		tmdbClient = tmdb.New(cfg.TMDB.APIKey.Value(), logger)
 	}
 
+	librarySvc := library.NewService(queries, bus, tmdbClient)
 	movieSvc := movie.NewService(queries, tmdbClient, bus, logger)
 	blocklistSvc := blocklist.NewService(queries)
 	indexerSvc := indexer.NewService(queries, registry.Default, bus)

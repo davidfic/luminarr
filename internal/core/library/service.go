@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,7 +17,13 @@ import (
 
 	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
 	"github.com/davidfic/luminarr/internal/events"
+	"github.com/davidfic/luminarr/internal/metadata/tmdb"
 )
+
+// tmdbSearcher is the minimal TMDB interface needed for background candidate matching.
+type tmdbSearcher interface {
+	SearchMovies(ctx context.Context, query string, year int) ([]tmdb.SearchResult, error)
+}
 
 // ErrNotFound is returned when a library does not exist.
 var ErrNotFound = errors.New("library not found")
@@ -58,13 +66,15 @@ type Stats struct {
 
 // Service manages library records.
 type Service struct {
-	q   dbsqlite.Querier
-	bus *events.Bus
+	q    dbsqlite.Querier
+	bus  *events.Bus
+	meta tmdbSearcher // nil when TMDB is not configured
 }
 
-// NewService creates a new Service backed by the given querier and event bus.
-func NewService(q dbsqlite.Querier, bus *events.Bus) *Service {
-	return &Service{q: q, bus: bus}
+// NewService creates a new Service backed by the given querier, event bus, and
+// optional TMDB searcher (pass nil to disable background candidate matching).
+func NewService(q dbsqlite.Querier, bus *events.Bus, meta tmdbSearcher) *Service {
+	return &Service{q: q, bus: bus, meta: meta}
 }
 
 // Create inserts a new library and returns the persisted domain type.
@@ -232,6 +242,10 @@ func (s *Service) Stats(ctx context.Context, id string) (Stats, error) {
 // ScanDisk walks the library's root path and returns video files that are not
 // yet tracked in the movie_files table. It is the read-only counterpart to
 // Scan — callers may use the result to let users select files for import.
+//
+// As a side-effect, newly discovered files are upserted into
+// library_file_candidates and a background TMDB matching pass is triggered for
+// any unmatched candidates.
 func (s *Service) ScanDisk(ctx context.Context, libraryID string) ([]DiskFile, error) {
 	lib, err := s.Get(ctx, libraryID)
 	if err != nil {
@@ -248,7 +262,49 @@ func (s *Service) ScanDisk(ctx context.Context, libraryID string) ([]DiskFile, e
 		knownPaths[f.Path] = true
 	}
 
-	return scanDisk(lib.RootPath, knownPaths)
+	files, err := scanDisk(lib.RootPath, knownPaths)
+	if err != nil {
+		return nil, err
+	}
+
+	// Upsert candidates (preserves existing TMDB matches on conflict).
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, f := range files {
+		_ = s.q.UpsertLibraryFileCandidate(ctx, dbsqlite.UpsertLibraryFileCandidateParams{
+			LibraryID:   libraryID,
+			FilePath:    f.Path,
+			FileSize:    f.SizeBytes,
+			ParsedTitle: f.ParsedTitle,
+			ParsedYear:  int64(f.ParsedYear),
+			ScannedAt:   now,
+		})
+	}
+
+	// Fetch stored TMDB matches and attach them to the returned files.
+	candidates, _ := s.q.ListLibraryFileCandidates(ctx, libraryID)
+	matchMap := make(map[string]dbsqlite.LibraryFileCandidate, len(candidates))
+	for _, c := range candidates {
+		if c.TmdbID > 0 {
+			matchMap[c.FilePath] = c
+		}
+	}
+	for i, f := range files {
+		if c, ok := matchMap[f.Path]; ok {
+			files[i].TMDBMatch = &DiskFileTMDBMatch{
+				TMDBID:        int(c.TmdbID),
+				Title:         c.TmdbTitle,
+				OriginalTitle: c.TmdbOriginalTitle,
+				Year:          int(c.TmdbYear),
+			}
+		}
+	}
+
+	// Trigger background TMDB matching for unmatched candidates.
+	if s.meta != nil {
+		go s.matchCandidates(context.Background(), libraryID)
+	}
+
+	return files, nil
 }
 
 // Scan walks a library's root path and reconciles tracked movie files against
@@ -286,7 +342,75 @@ func (s *Service) Scan(ctx context.Context, libraryID string) error {
 			})
 		}
 	}
+
+	// Trigger background TMDB matching for any unmatched candidates.
+	if s.meta != nil {
+		go s.matchCandidates(context.Background(), libraryID)
+	}
 	return nil
+}
+
+// matchCandidates looks up TMDB for every unmatched candidate in a library and
+// stores the result. It runs entirely in the background and is nil-safe.
+func (s *Service) matchCandidates(ctx context.Context, libraryID string) {
+	unmatched, err := s.q.ListUnmatchedLibraryFileCandidates(ctx, libraryID)
+	if err != nil || len(unmatched) == 0 {
+		return
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, c := range unmatched {
+		results, err := s.meta.SearchMovies(ctx, c.ParsedTitle, int(c.ParsedYear))
+		if err != nil || len(results) == 0 {
+			continue
+		}
+		best := pickBestCandidateMatch(results, c.ParsedTitle, int(c.ParsedYear))
+		if best == nil {
+			continue
+		}
+		_ = s.q.SetLibraryFileCandidateMatch(ctx, dbsqlite.SetLibraryFileCandidateMatchParams{
+			TmdbID:            int64(best.ID),
+			TmdbTitle:         best.Title,
+			TmdbYear:          int64(best.Year),
+			TmdbOriginalTitle: best.OriginalTitle,
+			MatchedAt:         &now,
+			LibraryID:         libraryID,
+			FilePath:          c.FilePath,
+		})
+	}
+}
+
+// pickBestCandidateMatch returns the first result whose (normalized) title
+// matches parsedTitle AND whose year matches parsedYear. Returns nil when no
+// confident match is found.
+func pickBestCandidateMatch(results []tmdb.SearchResult, parsedTitle string, parsedYear int) *tmdb.SearchResult {
+	if parsedYear == 0 || len(results) == 0 {
+		return nil
+	}
+	norm := normalizeCandidateTitle(parsedTitle)
+	for i, r := range results {
+		if (normalizeCandidateTitle(r.Title) == norm || normalizeCandidateTitle(r.OriginalTitle) == norm) &&
+			r.Year == parsedYear {
+			return &results[i]
+		}
+	}
+	return nil
+}
+
+var candidateTitleNormRe = regexp.MustCompile(`[^a-z0-9\s]`)
+
+func normalizeCandidateTitle(s string) string {
+	s = strings.ToLower(s)
+	s = candidateTitleNormRe.ReplaceAllString(s, "")
+	return strings.Join(strings.Fields(s), " ")
+}
+
+// DeleteCandidate removes a file from the candidate table after it has been
+// imported. It is a best-effort call — errors are intentionally ignored.
+func (s *Service) DeleteCandidate(ctx context.Context, libraryID, filePath string) error {
+	return s.q.DeleteLibraryFileCandidate(ctx, dbsqlite.DeleteLibraryFileCandidateParams{
+		LibraryID: libraryID,
+		FilePath:  filePath,
+	})
 }
 
 // diskFree returns the number of free bytes at the given path using

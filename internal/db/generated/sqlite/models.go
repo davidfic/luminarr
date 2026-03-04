@@ -82,6 +82,21 @@ type Library struct {
 	FolderFormat            *string `json:"folderFormat"`
 }
 
+type LibraryFileCandidate struct {
+	LibraryID         string  `json:"libraryId"`
+	FilePath          string  `json:"filePath"`
+	FileSize          int64   `json:"fileSize"`
+	ParsedTitle       string  `json:"parsedTitle"`
+	ParsedYear        int64   `json:"parsedYear"`
+	TmdbID            int64   `json:"tmdbId"`
+	TmdbTitle         string  `json:"tmdbTitle"`
+	TmdbYear          int64   `json:"tmdbYear"`
+	TmdbOriginalTitle string  `json:"tmdbOriginalTitle"`
+	AutoMatched       int64   `json:"autoMatched"`
+	ScannedAt         string  `json:"scannedAt"`
+	MatchedAt         *string `json:"matchedAt"`
+}
+
 type MediaManagement struct {
 	ID                     int64  `json:"id"`
 	RenameMovies           int64  `json:"renameMovies"`

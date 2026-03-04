@@ -29,6 +29,7 @@ type Querier interface {
 	DeleteDownloadClientConfig(ctx context.Context, id string) error
 	DeleteIndexerConfig(ctx context.Context, id string) error
 	DeleteLibrary(ctx context.Context, id string) error
+	DeleteLibraryFileCandidate(ctx context.Context, arg DeleteLibraryFileCandidateParams) error
 	DeleteMovie(ctx context.Context, id string) error
 	DeleteMovieFile(ctx context.Context, id string) error
 	DeleteNotificationConfig(ctx context.Context, id string) error
@@ -59,6 +60,7 @@ type Querier interface {
 	ListGrabHistoryByMovie(ctx context.Context, movieID string) ([]GrabHistory, error)
 	ListIndexerConfigs(ctx context.Context) ([]IndexerConfig, error)
 	ListLibraries(ctx context.Context) ([]Library, error)
+	ListLibraryFileCandidates(ctx context.Context, libraryID string) ([]LibraryFileCandidate, error)
 	ListMonitoredMovies(ctx context.Context) ([]Movie, error)
 	ListMonitoredMoviesWithFiles(ctx context.Context) ([]ListMonitoredMoviesWithFilesRow, error)
 	ListMonitoredMoviesWithoutFile(ctx context.Context, arg ListMonitoredMoviesWithoutFileParams) ([]Movie, error)
@@ -70,8 +72,10 @@ type Querier interface {
 	ListQualityDefinitions(ctx context.Context) ([]QualityDefinition, error)
 	ListQualityProfiles(ctx context.Context) ([]QualityProfile, error)
 	ListRemotePathMappings(ctx context.Context) ([]RemotePathMapping, error)
+	ListUnmatchedLibraryFileCandidates(ctx context.Context, libraryID string) ([]LibraryFileCandidate, error)
 	MarkGrabRemoved(ctx context.Context, id string) error
 	QualityProfileInUse(ctx context.Context, arg QualityProfileInUseParams) (int64, error)
+	SetLibraryFileCandidateMatch(ctx context.Context, arg SetLibraryFileCandidateMatchParams) error
 	SumMovieFileSizesByLibrary(ctx context.Context, libraryID string) (interface{}, error)
 	UpdateDownloadClientConfig(ctx context.Context, arg UpdateDownloadClientConfigParams) (DownloadClientConfig, error)
 	UpdateDownloadHandling(ctx context.Context, arg UpdateDownloadHandlingParams) (DownloadHandling, error)
@@ -89,6 +93,7 @@ type Querier interface {
 	UpdateNotificationConfig(ctx context.Context, arg UpdateNotificationConfigParams) (NotificationConfig, error)
 	UpdateQualityDefinitionSizes(ctx context.Context, arg UpdateQualityDefinitionSizesParams) error
 	UpdateQualityProfile(ctx context.Context, arg UpdateQualityProfileParams) (QualityProfile, error)
+	UpsertLibraryFileCandidate(ctx context.Context, arg UpsertLibraryFileCandidateParams) error
 }
 
 var _ Querier = (*Queries)(nil)

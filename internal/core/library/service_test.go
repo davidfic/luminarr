@@ -14,7 +14,7 @@ import (
 func newServices(t *testing.T) (*library.Service, *quality.Service) {
 	t.Helper()
 	q := testutil.NewTestDB(t)
-	return library.NewService(q, nil), quality.NewService(q, nil)
+	return library.NewService(q, nil, nil), quality.NewService(q, nil)
 }
 
 // createQualityProfile is a test helper that inserts a quality profile and

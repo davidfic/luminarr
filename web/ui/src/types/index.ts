@@ -204,11 +204,19 @@ export interface MediaManagement {
 
 // ── Library disk import ────────────────────────────────────────────────────
 
+export interface DiskFileTMDBMatch {
+  tmdb_id: number;
+  title: string;
+  original_title: string;
+  year: number;
+}
+
 export interface DiskFile {
   path: string;
   size_bytes: number;
   parsed_title: string;
   parsed_year: number;
+  tmdb_match?: DiskFileTMDBMatch;
 }
 
 // ── Quality Profiles ───────────────────────────────────────────────────────
