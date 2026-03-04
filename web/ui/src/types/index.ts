@@ -63,6 +63,7 @@ export interface Movie {
   library_id: string;
   quality_profile_id: string;
   minimum_availability: string;
+  release_date?: string;
   path?: string;
   added_at: string;
   updated_at: string;

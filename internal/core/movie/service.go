@@ -55,6 +55,7 @@ type Movie struct {
 	LibraryID           string
 	QualityProfileID    string
 	MinimumAvailability string
+	ReleaseDate         string
 	Path                string
 	AddedAt             time.Time
 	UpdatedAt           time.Time
@@ -217,6 +218,7 @@ func (s *Service) Add(ctx context.Context, req AddRequest) (Movie, error) {
 		LibraryID:           req.LibraryID,
 		QualityProfileID:    req.QualityProfileID,
 		MinimumAvailability: minAvail,
+		ReleaseDate:         detail.ReleaseDate,
 		Path:                nil,
 		AddedAt:             now,
 		UpdatedAt:           now,
@@ -432,6 +434,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Mov
 		LibraryID:           libraryID,
 		QualityProfileID:    qualityProfileID,
 		MinimumAvailability: minAvail,
+		ReleaseDate:         existing.ReleaseDate,
 		UpdatedAt:           time.Now().UTC().Format(time.RFC3339),
 	})
 	if err != nil {
@@ -564,6 +567,7 @@ func (s *Service) RefreshMetadata(ctx context.Context, id string) (Movie, error)
 		LibraryID:           existing.LibraryID,
 		QualityProfileID:    existing.QualityProfileID,
 		MinimumAvailability: existing.MinimumAvailability,
+		ReleaseDate:         detail.ReleaseDate,
 		UpdatedAt:           now,
 	})
 	if err != nil {
@@ -862,6 +866,7 @@ func rowToMovie(row dbsqlite.Movie) (Movie, error) {
 		LibraryID:           row.LibraryID,
 		QualityProfileID:    row.QualityProfileID,
 		MinimumAvailability: row.MinimumAvailability,
+		ReleaseDate:         row.ReleaseDate,
 		Path:                path,
 		AddedAt:             addedAt,
 		UpdatedAt:           updatedAt,

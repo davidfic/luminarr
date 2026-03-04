@@ -14,6 +14,7 @@ import {
   ArrowDownToLine,
   Ban,
   Bookmark,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Activity,
@@ -30,10 +31,11 @@ interface NavItem {
 }
 
 const mainNav: NavItem[] = [
-  { to: "/",        icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/wanted",  icon: Bookmark,        label: "Wanted" },
-  { to: "/queue",   icon: Download,        label: "Queue" },
-  { to: "/history", icon: History,         label: "History" },
+  { to: "/",          icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/calendar",  icon: CalendarDays,    label: "Calendar" },
+  { to: "/wanted",    icon: Bookmark,        label: "Wanted" },
+  { to: "/queue",     icon: Download,        label: "Queue" },
+  { to: "/history",   icon: History,         label: "History" },
 ];
 
 const settingsNav: NavItem[] = [

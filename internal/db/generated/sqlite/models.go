@@ -94,6 +94,7 @@ type Movie struct {
 	UpdatedAt           string  `json:"updatedAt"`
 	MetadataRefreshedAt *string `json:"metadataRefreshedAt"`
 	MinimumAvailability string  `json:"minimumAvailability"`
+	ReleaseDate         string  `json:"releaseDate"`
 }
 
 type MovieFile struct {

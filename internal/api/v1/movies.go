@@ -54,6 +54,7 @@ type movieBody struct {
 	LibraryID           string     `json:"library_id"                     doc:"Parent library UUID"`
 	QualityProfileID    string     `json:"quality_profile_id"             doc:"Quality profile UUID"`
 	MinimumAvailability string     `json:"minimum_availability"           doc:"Minimum availability before grabbing: tba, announced, in_cinemas, released"`
+	ReleaseDate         string     `json:"release_date,omitempty"         doc:"TMDB release date (YYYY-MM-DD)"`
 	Path                string     `json:"path,omitempty"                 doc:"Absolute path on disk"`
 	AddedAt             time.Time  `json:"added_at"                       doc:"When the movie was added"`
 	UpdatedAt           time.Time  `json:"updated_at"                     doc:"When the record was last changed"`
@@ -175,6 +176,7 @@ func movieToBody(m movie.Movie) *movieBody {
 		LibraryID:           m.LibraryID,
 		QualityProfileID:    m.QualityProfileID,
 		MinimumAvailability: m.MinimumAvailability,
+		ReleaseDate:         m.ReleaseDate,
 		Path:                m.Path,
 		AddedAt:             m.AddedAt,
 		UpdatedAt:           m.UpdatedAt,

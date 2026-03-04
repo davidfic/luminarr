@@ -5,14 +5,14 @@ INSERT INTO movies (
     poster_url, fanart_url, status, monitored,
     library_id, quality_profile_id, path,
     added_at, updated_at, metadata_refreshed_at,
-    minimum_availability
+    minimum_availability, release_date
 ) VALUES (
     ?, ?, ?, ?, ?,
     ?, ?, ?, ?,
     ?, ?, ?, ?,
     ?, ?, ?,
     ?, ?, ?,
-    ?
+    ?, ?
 )
 RETURNING *;
 
@@ -59,6 +59,7 @@ UPDATE movies SET
     library_id           = ?,
     quality_profile_id   = ?,
     minimum_availability = ?,
+    release_date         = ?,
     updated_at           = ?
 WHERE id = ?
 RETURNING *;
