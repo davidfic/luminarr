@@ -2,7 +2,7 @@
 
 > A self-hosted movie collection manager. Monitors your library, searches indexers, and automatically grabs the best available release — with a quality model that makes sense.
 
-**[Quick Start](#quick-start)** · **[Import from Radarr](#import-from-radarr-in-one-click)** · **[Features](#features)** · **[Privacy](#privacy--no-telemetry)** · **[Architecture](docs/ARCHITECTURE.md)**
+**[Getting Started](docs/GETTING_STARTED.md)** · **[Quick Start](#quick-start)** · **[Import from Radarr](#import-from-radarr-in-one-click)** · **[Features](#features)** · **[Privacy](#privacy--no-telemetry)** · **[Architecture](docs/ARCHITECTURE.md)**
 
 ---
 
@@ -33,7 +33,7 @@ Luminarr connects to your live Radarr instance and imports everything — qualit
 |---|---|---|
 | Backend | .NET / Mono | Go |
 | Frontend | Angular | React |
-| Database | SQLite / Postgres | SQLite / Postgres |
+| Database | SQLite / Postgres | SQLite |
 | Memory (idle) | ~300–500 MB | ~30–60 MB |
 | Startup time | 10–30 s | < 1 s |
 
@@ -47,16 +47,35 @@ Radarr has optional analytics. Luminarr has no analytics at all — optional or 
 
 ## Features
 
+**Library management**
 - **Movie gallery** — poster grid or list view with filters by status, quality, library, and search
 - **TMDB integration** — search and add movies with metadata, posters, and cast information
+- **Minimum availability** — don't search until a movie reaches a configured release status (TBA / Announced / In Cinemas / Released)
+- **Bulk actions** — select and delete multiple movies at once from the movie gallery
+
+**Automation**
 - **Quality profiles** — explicit codec + HDR dimensions, upgrade rules, and cutoffs
 - **Torznab & Newznab indexers** — compatible with Prowlarr and Jackett
 - **qBittorrent & Deluge** — send grabs and monitor download progress
 - **Automatic RSS sync** — checks indexers every 15 minutes, grabs matching releases
 - **Auto-import** — moves or hardlinks completed downloads into your library
+- **Blocklist** — automatically prevents failed grabs from being retried; manage the list in Settings
+
+**Discovery**
+- **Wanted page** — two tabs: Missing (monitored movies with no file) and Cutoff Unmet (file below your quality target)
+- **Calendar view** — monthly grid of movies by release date, colour-coded by download status
+- **Manual search** — search all indexers for a specific movie and grab any release from the results
+
+**File management**
+- **Files tab** — view every file attached to a movie, delete records or remove from disk
+- **File renaming** — rename files on disk to Luminarr's standard format (`Title (Year) Quality.ext`) from the movie detail panel
+- **Per-movie history** — full grab and import history per movie in a History tab
+
+**Operations**
 - **Radarr import** — one-click migration from a running Radarr instance
-- **Notifications** — Discord, webhook, and email alerts for grabs, imports, and health issues
+- **Notifications** — Discord, Slack, webhook, and email alerts for grabs, imports, and health issues
 - **Health monitoring** — disk space, download client connectivity, indexer reachability
+- **WebSocket live updates** — Queue page updates in real time without polling
 - **OpenAPI docs** — interactive API at `/api/docs`
 
 ---
@@ -111,7 +130,7 @@ make build
 ./bin/luminarr
 ```
 
-The full configuration reference is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#configuration).
+For full setup instructions — libraries, quality profiles, indexers, and download clients — see the **[Getting Started guide](docs/GETTING_STARTED.md)**.
 
 ---
 
@@ -144,7 +163,7 @@ Luminarr makes outbound connections **only** to services you explicitly configur
 | TMDB | When you search for or refresh a movie (requires your own API key) |
 | Your indexers | RSS sync and release search |
 | Your download clients | Sending grabs, polling queue |
-| Your notification targets | Discord, webhook, email — only if configured |
+| Your notification targets | Discord, Slack, webhook, email — only if configured |
 
 **What Luminarr never does:**
 - No telemetry or usage analytics

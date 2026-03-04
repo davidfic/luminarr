@@ -61,7 +61,7 @@ docker compose up -d
 
 ### Build from source
 
-Requires Go 1.25+ and Node.js 20+.
+Requires Go 1.22+ and Node.js 20+.
 
 ```bash
 git clone https://github.com/davidfic/luminarr
@@ -127,9 +127,14 @@ Once setup is complete:
 2. Click **Add Movie**
 3. Search by title — results come from TMDB
 4. Pick a quality profile and library
-5. Choose whether to start monitoring immediately
+5. Set **Minimum Availability** — Luminarr won't search for the movie until it reaches this release status:
+   - **TBA** — search as soon as the movie exists in TMDB
+   - **Announced** — search once production is announced
+   - **In Cinemas** — search once theatrical release begins
+   - **Released** (default) — search only after the movie has a home-media release
+6. Choose whether to start monitoring immediately
 
-Luminarr will search your indexers for available releases during the next RSS sync (every 15 minutes by default), or you can trigger a manual search from the movie detail page.
+Luminarr will search your indexers for available releases during the next RSS sync (every 15 minutes by default), or you can trigger a manual search from the movie detail panel.
 
 ---
 
@@ -138,9 +143,54 @@ Luminarr will search your indexers for available releases during the next RSS sy
 1. **RSS sync** (every 15 min) or **manual search** finds releases on your indexers
 2. Luminarr scores each release against your quality profile
 3. The best matching release is sent to your download client
-4. Luminarr polls the download client for progress (visible on the **Queue** page)
+4. Luminarr polls the download client for progress (visible on the **Queue** page, with live WebSocket updates)
 5. When the download completes, the **importer** moves or hardlinks the file into your library
 6. If notifications are configured, you get alerts at each stage
+
+If a grab fails, Luminarr adds it to the **blocklist** automatically so the same release isn't retried. You can review and clear the blocklist at **Settings → Blocklist**.
+
+---
+
+## Movie Detail Panel
+
+Click any movie to open its detail panel. It has three tabs:
+
+### Overview
+
+Metadata, poster, cast, and the grab controls. The **Manual Search** button searches all your indexers immediately and shows results in a table — you can review quality, size, age, and seeds, then grab whichever release you want.
+
+### Files
+
+Lists every file attached to the movie. From here you can:
+- **Delete** a file record from the database only, or delete it from disk as well
+- **Rename** files to Luminarr's standard format: `Title (Year) Quality.ext` — preview changes before committing
+
+### History
+
+A log of every grab and import event for this movie — release title, quality, indexer, timestamp, and outcome. Useful for diagnosing why a particular release was or wasn't grabbed.
+
+---
+
+## Wanted Page
+
+**Wanted** in the sidebar shows movies that need attention:
+
+- **Missing** — monitored movies with no file at all
+- **Cutoff Unmet** — monitored movies where the existing file is below the quality cutoff in your profile
+
+Both tabs have a **Search** button per movie that opens the Manual Search modal directly. Use the Wanted page as your daily work queue when the automation hasn't found something yet.
+
+---
+
+## Calendar
+
+The **Calendar** page shows a monthly grid of movies by their release date. Colour coding tells you at a glance what needs attention:
+
+- **Green** — movie has a file
+- **Yellow** — monitored, no file yet
+- **Grey** — unmonitored
+
+Click any movie to open its detail panel. Use Prev/Next to navigate months.
 
 ---
 
@@ -168,7 +218,7 @@ Radarr keeps running during import. Switch over when you're ready.
 
 **Settings → Notifications → Add Notification**
 
-Supported channels: **Discord**, **Webhook**, **Email**. Each can subscribe to specific events:
+Supported channels: **Discord**, **Slack**, **Webhook**, **Email**. Each can subscribe to specific events:
 
 - Grab started / failed
 - Download complete
@@ -185,9 +235,8 @@ All settings can live in `config.yaml` or as environment variables (prefixed wit
 |---------|---------|---------|-------------|
 | `server.host` | `0.0.0.0` | `LUMINARR_SERVER_HOST` | Listen address |
 | `server.port` | `8282` | `LUMINARR_SERVER_PORT` | HTTP port |
-| `database.driver` | `sqlite` | `LUMINARR_DATABASE_DRIVER` | `sqlite` or `postgres` |
+| `database.driver` | `sqlite` | `LUMINARR_DATABASE_DRIVER` | `sqlite` only |
 | `database.path` | `~/.config/luminarr/luminarr.db` | `LUMINARR_DATABASE_PATH` | SQLite file path |
-| `database.dsn` | — | `LUMINARR_DATABASE_DSN` | Postgres connection string |
 | `auth.api_key` | auto-generated | `LUMINARR_AUTH_API_KEY` | API key for all requests |
 | `tmdb.api_key` | — | `LUMINARR_TMDB_API_KEY` | TMDB metadata key |
 | `log.level` | `info` | `LUMINARR_LOG_LEVEL` | `debug`, `info`, `warn`, `error` |
@@ -212,7 +261,7 @@ Tools like Radarr ship with one API key that's visible in the settings UI — it
 
 Luminarr takes the same one-key-per-instance approach, but removes the copy-paste step entirely: the key is generated once on first start and **baked directly into the HTML** that the browser receives. The browser stores it in memory and sends it with every API request automatically. You never see it, never manage it, never paste it anywhere — it just works.
 
-The practical consequence: if you restart the container without a persistent key, the key changes and your open browser tabs get a 401 until you hard-refresh. Fix this with `LUMINARR_AUTH_API_KEY` or by mounting a `config.yaml`. See the [Troubleshooting](#troubleshooting) section.
+The practical consequence: if you restart the container without a persistent key, the key changes and your open browser tabs get a 401 until you hard-refresh. Fix this with `LUMINARR_AUTH_API_KEY` or by mounting a `config.yaml`. See [Troubleshooting](#troubleshooting) below.
 
 **Using the API from outside the browser** (scripts, Home Assistant, etc.): find your key in the container logs on startup (`api key: ...`), or set a fixed key via `LUMINARR_AUTH_API_KEY` and use that value in the `X-Api-Key` header.
 
