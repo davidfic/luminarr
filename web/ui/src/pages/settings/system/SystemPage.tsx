@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   useSystemStatus,
   useSystemHealth,
@@ -158,8 +158,36 @@ function StatsStrip() {
 
 // ── Section 1: Status ─────────────────────────────────────────────────────────
 
+type UpdateState =
+  | { type: "idle" }
+  | { type: "loading" }
+  | { type: "up-to-date" }
+  | { type: "available"; tag: string; url: string }
+  | { type: "error"; message: string };
+
 function StatusSection() {
   const { data, isLoading } = useSystemStatus();
+  const [updateState, setUpdateState] = useState<UpdateState>({ type: "idle" });
+
+  const checkForUpdates = useCallback(async () => {
+    setUpdateState({ type: "loading" });
+    try {
+      const res = await fetch("https://api.github.com/repos/davidfic/luminarr/releases/latest");
+      if (!res.ok) throw new Error(`GitHub returned ${res.status}`);
+      const json = (await res.json()) as { tag_name: string; html_url: string };
+      const current = data?.version ?? "";
+      // Compare allowing "v" prefix mismatch (e.g. tag "v0.1.0" vs version "0.1.0")
+      const tagBare = json.tag_name.replace(/^v/, "");
+      const currentBare = current.replace(/^v/, "");
+      if (tagBare === currentBare) {
+        setUpdateState({ type: "up-to-date" });
+      } else {
+        setUpdateState({ type: "available", tag: json.tag_name, url: json.html_url });
+      }
+    } catch (e) {
+      setUpdateState({ type: "error", message: (e as Error).message });
+    }
+  }, [data?.version]);
 
   return (
     <div style={card}>
@@ -184,6 +212,52 @@ function StatusSection() {
           <span style={{ color: "var(--color-text-primary)" }}>
             {data.app_name} {data.version}
           </span>
+
+          <span style={{ color: "var(--color-text-secondary)" }}>Updates</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button
+              onClick={checkForUpdates}
+              disabled={updateState.type === "loading"}
+              style={{
+                background: "var(--color-bg-elevated)",
+                border: "1px solid var(--color-border-default)",
+                borderRadius: 6,
+                padding: "3px 10px",
+                fontSize: 12,
+                color: updateState.type === "loading" ? "var(--color-text-muted)" : "var(--color-text-secondary)",
+                cursor: updateState.type === "loading" ? "not-allowed" : "pointer",
+              }}
+              onMouseEnter={(e) => {
+                if (updateState.type !== "loading") {
+                  (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-primary)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.color =
+                  updateState.type === "loading" ? "var(--color-text-muted)" : "var(--color-text-secondary)";
+              }}
+            >
+              {updateState.type === "loading" ? "Checking…" : "Check for updates"}
+            </button>
+            {updateState.type === "up-to-date" && (
+              <span style={{ fontSize: 12, color: "var(--color-success)" }}>Up to date ✓</span>
+            )}
+            {updateState.type === "available" && (
+              <a
+                href={updateState.url}
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontSize: 12, color: "var(--color-accent)" }}
+              >
+                {updateState.tag} available →
+              </a>
+            )}
+            {updateState.type === "error" && (
+              <span style={{ fontSize: 12, color: "var(--color-danger)" }}>
+                {updateState.message}
+              </span>
+            )}
+          </div>
 
           <span style={{ color: "var(--color-text-secondary)" }}>Go Version</span>
           <span style={{ color: "var(--color-text-primary)" }}>{data.go_version}</span>
