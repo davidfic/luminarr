@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiFetch } from "./client";
-import type { Movie, MovieListResponse, TMDBResult, Release, GrabHistory, MovieFile } from "@/types";
+import type { Movie, MovieListResponse, TMDBResult, Release, GrabHistory, MovieFile, RenameMovieResult } from "@/types";
 
 interface MovieFilters {
   library_id?: string;
@@ -175,6 +175,24 @@ export function useMovieSuggestions(movieId: string, enabled: boolean) {
     queryKey: ["movies", movieId, "suggestions"],
     queryFn: () => apiFetch<MovieSuggestions>(`/movies/${movieId}/suggestions`),
     enabled: enabled && !!movieId,
+  });
+}
+
+export function useRenameMovie() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dryRun }: { id: string; dryRun: boolean }) =>
+      apiFetch<RenameMovieResult>(
+        `/movies/${id}/rename?dry_run=${dryRun}`,
+        { method: "POST" }
+      ),
+    onSuccess: (data, { id }) => {
+      if (!data.dry_run) {
+        qc.invalidateQueries({ queryKey: ["movies", id, "files"] });
+        qc.invalidateQueries({ queryKey: ["movies", id] });
+      }
+    },
+    onError: (err) => toast.error((err as Error).message),
   });
 }
 

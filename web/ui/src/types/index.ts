@@ -120,6 +120,17 @@ export interface GrabHistory {
   grabbed_at: string;
 }
 
+export interface RenamePreviewItem {
+  file_id: string;
+  old_path: string;
+  new_path: string;
+}
+
+export interface RenameMovieResult {
+  dry_run: boolean;
+  renamed: RenamePreviewItem[];
+}
+
 // ── Queue ──────────────────────────────────────────────────────────────────
 
 export interface QueueItem {
