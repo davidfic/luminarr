@@ -81,7 +81,7 @@ func (n *Notifier) Notify(ctx context.Context, event plugin.NotificationEvent) e
 	}
 
 	cmd := exec.CommandContext(ctx, scriptPath) //nolint:gosec // path validated via resolveScript
-	cmd.WaitDelay = 3 * time.Second // give pipes time to drain after kill
+	cmd.WaitDelay = 3 * time.Second             // give pipes time to drain after kill
 	cmd.Stdin = bytes.NewReader(payload)
 	cmd.Env = append(os.Environ(),
 		"LUMINARR_EVENT_TYPE="+string(event.Type),
