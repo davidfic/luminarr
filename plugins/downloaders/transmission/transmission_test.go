@@ -255,8 +255,8 @@ func TestRemove(t *testing.T) {
 	var gotDeleteFiles bool
 	h.handlers["torrent-remove"] = func(args json.RawMessage) (any, string) {
 		var a struct {
-			IDs            []int64 `json:"ids"`
-			DeleteLocalData bool   `json:"delete-local-data"`
+			IDs             []int64 `json:"ids"`
+			DeleteLocalData bool    `json:"delete-local-data"`
 		}
 		_ = json.Unmarshal(args, &a)
 		gotDeleteFiles = a.DeleteLocalData
@@ -279,14 +279,14 @@ func TestStatusMapping(t *testing.T) {
 		hasError bool
 		expected plugin.DownloadStatus
 	}{
-		{0, false, plugin.StatusPaused},       // Stopped
-		{1, false, plugin.StatusQueued},        // QueuedToVerify
-		{2, false, plugin.StatusQueued},        // Verifying
-		{3, false, plugin.StatusQueued},        // QueuedToDownload
-		{4, false, plugin.StatusDownloading},   // Downloading
-		{5, false, plugin.StatusCompleted},     // QueuedToSeed
-		{6, false, plugin.StatusCompleted},     // Seeding
-		{4, true, plugin.StatusFailed},         // Downloading with error
+		{0, false, plugin.StatusPaused},      // Stopped
+		{1, false, plugin.StatusQueued},      // QueuedToVerify
+		{2, false, plugin.StatusQueued},      // Verifying
+		{3, false, plugin.StatusQueued},      // QueuedToDownload
+		{4, false, plugin.StatusDownloading}, // Downloading
+		{5, false, plugin.StatusCompleted},   // QueuedToSeed
+		{6, false, plugin.StatusCompleted},   // Seeding
+		{4, true, plugin.StatusFailed},       // Downloading with error
 	}
 
 	for _, tc := range tests {

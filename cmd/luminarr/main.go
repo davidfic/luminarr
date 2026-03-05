@@ -48,8 +48,8 @@ import (
 	// Blank-import built-in plugins so their init() functions register
 	// them with the default registry before any service is constructed.
 	_ "github.com/davidfic/luminarr/plugins/downloaders/deluge"
-	_ "github.com/davidfic/luminarr/plugins/downloaders/qbittorrent"
 	_ "github.com/davidfic/luminarr/plugins/downloaders/nzbget"
+	_ "github.com/davidfic/luminarr/plugins/downloaders/qbittorrent"
 	_ "github.com/davidfic/luminarr/plugins/downloaders/sabnzbd"
 	_ "github.com/davidfic/luminarr/plugins/downloaders/transmission"
 	_ "github.com/davidfic/luminarr/plugins/indexers/newznab"

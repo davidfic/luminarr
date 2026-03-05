@@ -87,6 +87,19 @@ interface FormState {
   dl_password: string;
   dl_label: string;
   dl_save_path: string;
+  // transmission
+  trans_url: string;
+  trans_username: string;
+  trans_password: string;
+  // sabnzbd
+  sab_url: string;
+  sab_api_key: string;
+  sab_category: string;
+  // nzbget
+  nzbget_url: string;
+  nzbget_username: string;
+  nzbget_password: string;
+  nzbget_category: string;
 }
 
 function emptyForm(): FormState {
@@ -94,41 +107,76 @@ function emptyForm(): FormState {
     name: "", kind: "qbittorrent", enabled: true, priority: "1",
     qb_url: "", qb_username: "", qb_password: "", qb_category: "", qb_save_path: "",
     dl_url: "", dl_password: "", dl_label: "", dl_save_path: "",
+    trans_url: "", trans_username: "", trans_password: "",
+    sab_url: "", sab_api_key: "", sab_category: "",
+    nzbget_url: "", nzbget_username: "", nzbget_password: "", nzbget_category: "",
   };
 }
 
 function clientToForm(cfg: DownloadClientConfig): FormState {
   const s = cfg.settings;
+  const k = cfg.kind;
   return {
     name: cfg.name,
-    kind: cfg.kind,
+    kind: k,
     enabled: cfg.enabled,
     priority: String(cfg.priority),
-    qb_url: cfg.kind === "qbittorrent" ? strSetting(s, "url") : "",
-    qb_username: cfg.kind === "qbittorrent" ? strSetting(s, "username") : "",
+    qb_url: k === "qbittorrent" ? strSetting(s, "url") : "",
+    qb_username: k === "qbittorrent" ? strSetting(s, "username") : "",
     qb_password: "",  // never pre-fill; server preserves existing password when omitted
-    qb_category: cfg.kind === "qbittorrent" ? strSetting(s, "category") : "",
-    qb_save_path: cfg.kind === "qbittorrent" ? strSetting(s, "save_path") : "",
-    dl_url: cfg.kind === "deluge" ? strSetting(s, "url") : "",
-    dl_password: "",  // never pre-fill; server preserves existing password when omitted
-    dl_label: cfg.kind === "deluge" ? strSetting(s, "label") : "",
-    dl_save_path: cfg.kind === "deluge" ? strSetting(s, "save_path") : "",
+    qb_category: k === "qbittorrent" ? strSetting(s, "category") : "",
+    qb_save_path: k === "qbittorrent" ? strSetting(s, "save_path") : "",
+    dl_url: k === "deluge" ? strSetting(s, "url") : "",
+    dl_password: "",  // never pre-fill
+    dl_label: k === "deluge" ? strSetting(s, "label") : "",
+    dl_save_path: k === "deluge" ? strSetting(s, "save_path") : "",
+    trans_url: k === "transmission" ? strSetting(s, "url") : "",
+    trans_username: k === "transmission" ? strSetting(s, "username") : "",
+    trans_password: "",  // never pre-fill
+    sab_url: k === "sabnzbd" ? strSetting(s, "url") : "",
+    sab_api_key: "",  // never pre-fill
+    sab_category: k === "sabnzbd" ? strSetting(s, "category") : "",
+    nzbget_url: k === "nzbget" ? strSetting(s, "url") : "",
+    nzbget_username: k === "nzbget" ? strSetting(s, "username") : "",
+    nzbget_password: "",  // never pre-fill
+    nzbget_category: k === "nzbget" ? strSetting(s, "category") : "",
   };
 }
 
 function formToRequest(f: FormState): DownloadClientRequest {
   let settings: Record<string, unknown>;
 
-  if (f.kind === "qbittorrent") {
-    settings = { url: f.qb_url.trim(), username: f.qb_username.trim() };
-    if (f.qb_password.trim()) settings.password = f.qb_password.trim();
-    if (f.qb_category.trim()) settings.category = f.qb_category.trim();
-    if (f.qb_save_path.trim()) settings.save_path = f.qb_save_path.trim();
-  } else {
-    settings = { url: f.dl_url.trim() };
-    if (f.dl_password.trim()) settings.password = f.dl_password.trim();
-    if (f.dl_label.trim()) settings.label = f.dl_label.trim();
-    if (f.dl_save_path.trim()) settings.save_path = f.dl_save_path.trim();
+  switch (f.kind) {
+    case "qbittorrent":
+      settings = { url: f.qb_url.trim(), username: f.qb_username.trim() };
+      if (f.qb_password.trim()) settings.password = f.qb_password.trim();
+      if (f.qb_category.trim()) settings.category = f.qb_category.trim();
+      if (f.qb_save_path.trim()) settings.save_path = f.qb_save_path.trim();
+      break;
+    case "deluge":
+      settings = { url: f.dl_url.trim() };
+      if (f.dl_password.trim()) settings.password = f.dl_password.trim();
+      if (f.dl_label.trim()) settings.label = f.dl_label.trim();
+      if (f.dl_save_path.trim()) settings.save_path = f.dl_save_path.trim();
+      break;
+    case "transmission":
+      settings = { url: f.trans_url.trim() };
+      if (f.trans_username.trim()) settings.username = f.trans_username.trim();
+      if (f.trans_password.trim()) settings.password = f.trans_password.trim();
+      break;
+    case "sabnzbd":
+      settings = { url: f.sab_url.trim() };
+      if (f.sab_api_key.trim()) settings.api_key = f.sab_api_key.trim();
+      if (f.sab_category.trim()) settings.category = f.sab_category.trim();
+      break;
+    case "nzbget":
+      settings = { url: f.nzbget_url.trim() };
+      if (f.nzbget_username.trim()) settings.username = f.nzbget_username.trim();
+      if (f.nzbget_password.trim()) settings.password = f.nzbget_password.trim();
+      if (f.nzbget_category.trim()) settings.category = f.nzbget_category.trim();
+      break;
+    default:
+      settings = {};
   }
 
   return {
@@ -164,8 +212,13 @@ function DownloadClientModal({ editing, onClose }: ModalProps) {
 
   function handleSubmit() {
     if (!form.name.trim()) { setError("Name is required."); return; }
-    const url = form.kind === "qbittorrent" ? form.qb_url : form.dl_url;
+    const urlMap: Record<string, string> = {
+      qbittorrent: form.qb_url, deluge: form.dl_url, transmission: form.trans_url,
+      sabnzbd: form.sab_url, nzbget: form.nzbget_url,
+    };
+    const url = urlMap[form.kind] ?? "";
     if (!url.trim()) { setError("URL is required."); return; }
+    if (form.kind === "sabnzbd" && !form.sab_api_key.trim()) { setError("API Key is required."); return; }
 
     const body = formToRequest(form);
 
@@ -188,7 +241,7 @@ function DownloadClientModal({ editing, onClose }: ModalProps) {
 
   const sensitiveHint = editing ? (
     <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--color-text-muted)" }}>
-      Password is masked. Enter a new value to update, leave blank to clear.
+      Masked for security. Enter a new value to update, or leave blank to keep existing.
     </p>
   ) : null;
 
@@ -273,6 +326,9 @@ function DownloadClientModal({ editing, onClose }: ModalProps) {
               >
                 <option value="qbittorrent">qBittorrent</option>
                 <option value="deluge">Deluge</option>
+                <option value="transmission">Transmission</option>
+                <option value="sabnzbd">SABnzbd</option>
+                <option value="nzbget">NZBGet</option>
               </select>
             </div>
           </div>
@@ -290,10 +346,10 @@ function DownloadClientModal({ editing, onClose }: ModalProps) {
             }}
           >
             <p style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-text-muted)" }}>
-              {form.kind === "qbittorrent" ? "qBittorrent Settings" : "Deluge Settings"}
+              {{ qbittorrent: "qBittorrent", deluge: "Deluge", transmission: "Transmission", sabnzbd: "SABnzbd", nzbget: "NZBGet" }[form.kind] ?? form.kind} Settings
             </p>
 
-            {form.kind === "qbittorrent" ? (
+            {form.kind === "qbittorrent" && (
               <>
                 <div style={fieldStyle}>
                   <label style={labelStyle}>URL *</label>
@@ -359,7 +415,9 @@ function DownloadClientModal({ editing, onClose }: ModalProps) {
                   </div>
                 </div>
               </>
-            ) : (
+            )}
+
+            {form.kind === "deluge" && (
               <>
                 <div style={fieldStyle}>
                   <label style={labelStyle}>URL *</label>
@@ -409,6 +467,145 @@ function DownloadClientModal({ editing, onClose }: ModalProps) {
                       placeholder="/downloads/movies"
                     />
                   </div>
+                </div>
+              </>
+            )}
+
+            {form.kind === "transmission" && (
+              <>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>URL *</label>
+                  <input
+                    style={inputStyle}
+                    value={form.trans_url}
+                    onChange={(e) => set("trans_url", e.currentTarget.value)}
+                    onFocus={focusBorder}
+                    onBlur={blurBorder}
+                    placeholder="http://localhost:9091"
+                  />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Username</label>
+                    <input
+                      style={inputStyle}
+                      value={form.trans_username}
+                      onChange={(e) => set("trans_username", e.currentTarget.value)}
+                      onFocus={focusBorder}
+                      onBlur={blurBorder}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Password</label>
+                    <input
+                      style={inputStyle}
+                      type="password"
+                      value={form.trans_password}
+                      onChange={(e) => set("trans_password", e.currentTarget.value)}
+                      onFocus={focusBorder}
+                      onBlur={blurBorder}
+                      placeholder={editing ? "enter to change" : ""}
+                      autoComplete="new-password"
+                    />
+                    {sensitiveHint}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {form.kind === "sabnzbd" && (
+              <>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>URL *</label>
+                  <input
+                    style={inputStyle}
+                    value={form.sab_url}
+                    onChange={(e) => set("sab_url", e.currentTarget.value)}
+                    onFocus={focusBorder}
+                    onBlur={blurBorder}
+                    placeholder="http://localhost:8080"
+                  />
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>API Key *</label>
+                  <input
+                    style={inputStyle}
+                    type="password"
+                    value={form.sab_api_key}
+                    onChange={(e) => set("sab_api_key", e.currentTarget.value)}
+                    onFocus={focusBorder}
+                    onBlur={blurBorder}
+                    placeholder={editing ? "enter to change" : ""}
+                    autoComplete="new-password"
+                  />
+                  {sensitiveHint}
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Category</label>
+                  <input
+                    style={inputStyle}
+                    value={form.sab_category}
+                    onChange={(e) => set("sab_category", e.currentTarget.value)}
+                    onFocus={focusBorder}
+                    onBlur={blurBorder}
+                    placeholder="luminarr"
+                  />
+                </div>
+              </>
+            )}
+
+            {form.kind === "nzbget" && (
+              <>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>URL *</label>
+                  <input
+                    style={inputStyle}
+                    value={form.nzbget_url}
+                    onChange={(e) => set("nzbget_url", e.currentTarget.value)}
+                    onFocus={focusBorder}
+                    onBlur={blurBorder}
+                    placeholder="http://localhost:6789"
+                  />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Username</label>
+                    <input
+                      style={inputStyle}
+                      value={form.nzbget_username}
+                      onChange={(e) => set("nzbget_username", e.currentTarget.value)}
+                      onFocus={focusBorder}
+                      onBlur={blurBorder}
+                      placeholder="nzbget"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Password</label>
+                    <input
+                      style={inputStyle}
+                      type="password"
+                      value={form.nzbget_password}
+                      onChange={(e) => set("nzbget_password", e.currentTarget.value)}
+                      onFocus={focusBorder}
+                      onBlur={blurBorder}
+                      placeholder={editing ? "enter to change" : ""}
+                      autoComplete="new-password"
+                    />
+                    {sensitiveHint}
+                  </div>
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Category</label>
+                  <input
+                    style={inputStyle}
+                    value={form.nzbget_category}
+                    onChange={(e) => set("nzbget_category", e.currentTarget.value)}
+                    onFocus={focusBorder}
+                    onBlur={blurBorder}
+                    placeholder="luminarr"
+                  />
                 </div>
               </>
             )}
@@ -587,7 +784,15 @@ function RowActions({ client, onEdit }: RowActionsProps) {
 // ── Badge ──────────────────────────────────────────────────────────────────────
 
 function KindBadge({ kind }: { kind: string }) {
-  const labels: Record<string, string> = { qbittorrent: "qBittorrent", deluge: "Deluge" };
+  const labels: Record<string, string> = {
+    qbittorrent: "qBittorrent", deluge: "Deluge", transmission: "Transmission",
+    sabnzbd: "SABnzbd", nzbget: "NZBGet",
+  };
+  const colors: Record<string, string> = {
+    qbittorrent: "var(--color-accent)", deluge: "var(--color-accent)",
+    transmission: "#B71C1C", sabnzbd: "#F57C00", nzbget: "#388E3C",
+  };
+  const c = colors[kind] ?? "var(--color-accent)";
   return (
     <span
       style={{
@@ -598,8 +803,8 @@ function KindBadge({ kind }: { kind: string }) {
         fontWeight: 600,
         textTransform: "uppercase",
         letterSpacing: "0.05em",
-        background: "color-mix(in srgb, var(--color-accent) 12%, transparent)",
-        color: "var(--color-accent)",
+        background: `color-mix(in srgb, ${c} 12%, transparent)`,
+        color: c,
       }}
     >
       {labels[kind] ?? kind}
