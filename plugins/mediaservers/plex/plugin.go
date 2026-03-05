@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -198,4 +199,118 @@ func (s *Server) Test(ctx context.Context) error {
 		return fmt.Errorf("plex: test returned %d: %s", resp.StatusCode, body)
 	}
 	return nil
+}
+
+// ── Library sync support ─────────────────────────────────────────────────────
+
+// Section is a public representation of a Plex library section.
+type Section struct {
+	Key   string `json:"key"`
+	Title string `json:"title"`
+	Type  string `json:"type"`
+}
+
+// Movie represents a movie in a Plex library section.
+type Movie struct {
+	RatingKey string `json:"rating_key"`
+	Title     string `json:"title"`
+	Year      int    `json:"year"`
+	TmdbID    int    `json:"tmdb_id"` // 0 if no TMDB guid found
+}
+
+// plexMovieContainer is the XML response from /library/sections/{key}/all.
+type plexMovieContainer struct {
+	XMLName xml.Name    `xml:"MediaContainer"`
+	Videos  []plexVideo `xml:"Video"`
+}
+
+type plexVideo struct {
+	RatingKey string    `xml:"ratingKey,attr"`
+	Title     string    `xml:"title,attr"`
+	Year      int       `xml:"year,attr"`
+	GUID      string    `xml:"guid,attr"` // legacy agent format
+	Guids     []plexGID `xml:"Guid"`      // new agent format
+}
+
+type plexGID struct {
+	ID string `xml:"id,attr"` // e.g. "tmdb://12345", "imdb://tt1234567"
+}
+
+// ListSections returns the movie library sections from this Plex server.
+func (s *Server) ListSections(ctx context.Context) ([]Section, error) {
+	raw, err := s.getSections(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var sections []Section
+	for _, d := range raw.Directories {
+		if d.Type == "movie" {
+			sections = append(sections, Section{Key: d.Key, Title: d.Title, Type: d.Type})
+		}
+	}
+	return sections, nil
+}
+
+// ListMovies returns all movies in the given Plex library section.
+func (s *Server) ListMovies(ctx context.Context, sectionKey string) ([]Movie, error) {
+	reqURL := fmt.Sprintf("%s/library/sections/%s/all", s.cfg.URL, sectionKey)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("plex: building list-movies request: %w", err)
+	}
+	req.Header.Set("X-Plex-Token", s.cfg.Token)
+	req.Header.Set("Accept", "application/xml")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("plex: list-movies request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("plex: list-movies returned %d: %s", resp.StatusCode, body)
+	}
+
+	var container plexMovieContainer
+	if err := xml.NewDecoder(resp.Body).Decode(&container); err != nil {
+		return nil, fmt.Errorf("plex: decoding movies: %w", err)
+	}
+
+	movies := make([]Movie, 0, len(container.Videos))
+	for _, v := range container.Videos {
+		movies = append(movies, Movie{
+			RatingKey: v.RatingKey,
+			Title:     v.Title,
+			Year:      v.Year,
+			TmdbID:    extractTmdbID(v),
+		})
+	}
+	return movies, nil
+}
+
+// extractTmdbID tries to find a TMDB ID from the video's guid fields.
+// New Plex agent: <Guid id="tmdb://12345"/>
+// Legacy agent: guid="com.plexapp.agents.themoviedb://12345?lang=en"
+func extractTmdbID(v plexVideo) int {
+	// New agent format: child <Guid> elements.
+	for _, g := range v.Guids {
+		if strings.HasPrefix(g.ID, "tmdb://") {
+			if id, err := strconv.Atoi(strings.TrimPrefix(g.ID, "tmdb://")); err == nil {
+				return id
+			}
+		}
+	}
+	// Legacy agent format: top-level guid attribute.
+	if strings.Contains(v.GUID, "themoviedb://") {
+		// Format: com.plexapp.agents.themoviedb://12345?lang=en
+		parts := strings.SplitN(v.GUID, "themoviedb://", 2)
+		if len(parts) == 2 {
+			idStr := strings.SplitN(parts[1], "?", 2)[0]
+			if id, err := strconv.Atoi(idStr); err == nil {
+				return id
+			}
+		}
+	}
+	return 0
 }

@@ -38,6 +38,7 @@ import (
 	"github.com/davidfic/luminarr/internal/mediaservers"
 	"github.com/davidfic/luminarr/internal/metadata/tmdb"
 	"github.com/davidfic/luminarr/internal/notifications"
+	"github.com/davidfic/luminarr/internal/plexsync"
 	"github.com/davidfic/luminarr/internal/radarrimport"
 	"github.com/davidfic/luminarr/internal/registry"
 	"github.com/davidfic/luminarr/internal/scheduler"
@@ -281,6 +282,8 @@ func run() error {
 	msDispatcher := mediaservers.NewDispatcher(queries, registry.Default, bus, logger)
 	msDispatcher.Subscribe()
 
+	plexSyncSvc := plexsync.NewService(mediaServerSvc, movieSvc, queries)
+
 	healthSvc := health.NewService(librarySvc, downloaderSvc, indexerSvc, logger)
 
 	radarrImportSvc := radarrimport.NewService(movieSvc, qualitySvc, librarySvc, indexerSvc, downloaderSvc)
@@ -336,6 +339,7 @@ func run() error {
 		MediaInfoService:         mediainfoSvc,
 		CollectionService:        collectionSvc,
 		MediaServerService:       mediaServerSvc,
+		PlexSyncService:          plexSyncSvc,
 		WSHub:                    wsHub,
 		Bus:                      bus,
 	})

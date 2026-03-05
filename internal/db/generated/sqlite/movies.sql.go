@@ -318,6 +318,33 @@ func (q *Queries) GetMovieFileByPath(ctx context.Context, path string) (MovieFil
 	return i, err
 }
 
+const listAllTMDBIDs = `-- name: ListAllTMDBIDs :many
+SELECT tmdb_id FROM movies WHERE tmdb_id != 0
+`
+
+func (q *Queries) ListAllTMDBIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listAllTMDBIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var tmdb_id int64
+		if err := rows.Scan(&tmdb_id); err != nil {
+			return nil, err
+		}
+		items = append(items, tmdb_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMonitoredMovies = `-- name: ListMonitoredMovies :many
 SELECT id, tmdb_id, imdb_id, title, original_title, year, overview, runtime_minutes, genres_json, poster_url, fanart_url, status, monitored, library_id, quality_profile_id, path, added_at, updated_at, metadata_refreshed_at, minimum_availability, release_date FROM movies
 WHERE monitored = 1
@@ -577,6 +604,47 @@ func (q *Queries) ListMovieFilesByLibrary(ctx context.Context, libraryID string)
 			&i.IndexedAt,
 			&i.MediainfoJson,
 			&i.MediainfoScannedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMovieSummaries = `-- name: ListMovieSummaries :many
+SELECT id, tmdb_id, title, year, status FROM movies WHERE tmdb_id != 0
+`
+
+type ListMovieSummariesRow struct {
+	ID     string `json:"id"`
+	TmdbID int64  `json:"tmdbId"`
+	Title  string `json:"title"`
+	Year   int64  `json:"year"`
+	Status string `json:"status"`
+}
+
+func (q *Queries) ListMovieSummaries(ctx context.Context) ([]ListMovieSummariesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMovieSummaries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMovieSummariesRow
+	for rows.Next() {
+		var i ListMovieSummariesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TmdbID,
+			&i.Title,
+			&i.Year,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}

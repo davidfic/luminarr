@@ -32,6 +32,7 @@ import (
 	"github.com/davidfic/luminarr/internal/core/queue"
 	"github.com/davidfic/luminarr/internal/core/stats"
 	"github.com/davidfic/luminarr/internal/events"
+	"github.com/davidfic/luminarr/internal/plexsync"
 	"github.com/davidfic/luminarr/internal/radarrimport"
 	"github.com/davidfic/luminarr/internal/scheduler"
 	"github.com/davidfic/luminarr/internal/version"
@@ -66,6 +67,7 @@ type RouterConfig struct {
 	MediaInfoService         *mediainfo.Service
 	CollectionService        *collection.Service
 	MediaServerService       *mediaserver.Service
+	PlexSyncService          *plexsync.Service
 	WSHub                    *ws.Hub
 	Bus                      *events.Bus
 }
@@ -200,6 +202,10 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	if cfg.MediaServerService != nil {
 		v1.RegisterMediaServerRoutes(humaAPI, cfg.MediaServerService)
+	}
+
+	if cfg.PlexSyncService != nil {
+		v1.RegisterPlexSyncRoutes(humaAPI, cfg.PlexSyncService)
 	}
 
 	if cfg.HealthService != nil {

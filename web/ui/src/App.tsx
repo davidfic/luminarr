@@ -25,6 +25,7 @@ import CalendarPage from "@/pages/calendar/CalendarPage";
 import StatsPage from "@/pages/stats/StatsPage";
 import CollectionsPage from "@/pages/collections/CollectionsPage";
 import CollectionDetail from "@/pages/collections/CollectionDetail";
+import LibrarySyncPage from "@/pages/library-sync/LibrarySyncPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +52,7 @@ export default function App() {
               <Route path="stats" element={<ErrorBoundary><StatsPage /></ErrorBoundary>} />
               <Route path="collections" element={<ErrorBoundary><CollectionsPage /></ErrorBoundary>} />
               <Route path="collections/:id" element={<ErrorBoundary><CollectionDetail /></ErrorBoundary>} />
+              <Route path="library-sync" element={<ErrorBoundary><LibrarySyncPage /></ErrorBoundary>} />
               <Route path="settings">
                 <Route path="app" element={<ErrorBoundary><AppSettingsPage /></ErrorBoundary>} />
                 <Route path="libraries" element={<ErrorBoundary><LibraryList /></ErrorBoundary>} />

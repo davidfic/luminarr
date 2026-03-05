@@ -520,3 +520,47 @@ export interface MediaServerRequest {
   enabled: boolean;
   settings: Record<string, unknown>;
 }
+
+// ── Plex Sync ──────────────────────────────────────────────────────────────
+
+export interface PlexSection {
+  key: string;
+  title: string;
+  type: string;
+}
+
+export interface PlexSyncMovie {
+  title: string;
+  year: number;
+  tmdb_id: number;
+}
+
+export interface LuminarrSyncMovie {
+  id: string;
+  title: string;
+  year: number;
+  tmdb_id: number;
+  status: string;
+}
+
+export interface PlexSyncPreviewResult {
+  plex_total: number;
+  in_plex_only: PlexSyncMovie[];
+  in_luminarr_only: LuminarrSyncMovie[];
+  already_synced: number;
+  unmatched: number;
+}
+
+export interface PlexSyncImportOptions {
+  tmdb_ids: number[];
+  library_id: string;
+  quality_profile_id: string;
+  monitored: boolean;
+}
+
+export interface PlexSyncImportResult {
+  imported: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+}

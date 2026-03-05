@@ -154,3 +154,9 @@ WHERE id = ?;
 SELECT id, path FROM movie_files
 WHERE mediainfo_json = ''
 ORDER BY imported_at DESC;
+
+-- name: ListAllTMDBIDs :many
+SELECT tmdb_id FROM movies WHERE tmdb_id != 0;
+
+-- name: ListMovieSummaries :many
+SELECT id, tmdb_id, title, year, status FROM movies WHERE tmdb_id != 0;
