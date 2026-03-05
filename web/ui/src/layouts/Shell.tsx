@@ -47,7 +47,6 @@ const mainNav: NavItem[] = [
 ];
 
 const settingsNav: NavItem[] = [
-  { to: "/settings/app",               icon: Paintbrush,       label: "App Settings" },
   { to: "/settings/libraries",         icon: Library,          label: "Libraries" },
   { to: "/settings/media-management",  icon: Film,             label: "Media Management" },
   { to: "/settings/media-scanning",    icon: ScanLine,         label: "Media Scanning" },
@@ -57,8 +56,9 @@ const settingsNav: NavItem[] = [
   { to: "/settings/download-clients",  icon: Settings2,        label: "Download Clients" },
   { to: "/settings/notifications",     icon: Bell,             label: "Notifications" },
   { to: "/settings/blocklist",         icon: Ban,              label: "Blocklist" },
-  { to: "/settings/system",            icon: Server,           label: "System" },
   { to: "/settings/import",            icon: ArrowDownToLine,  label: "Import" },
+  { to: "/settings/system",            icon: Server,           label: "System" },
+  { to: "/settings/app",               icon: Paintbrush,       label: "App Settings" },
 ];
 
 function useIsMobile() {

@@ -12,6 +12,13 @@ If there are multiple reasonable ways to do something, present the options and a
 Do not silently pick one and code it up. One question upfront is cheaper than
 reworking a wrong implementation.
 
+### Never deviate from agreed decisions without approval.
+If a technology, approach, or design decision has been agreed upon (in conversation,
+in a plan doc, or in these rules), do not change it unilaterally. This includes
+library choices, architectural patterns, API shapes, UI conventions, and workflow rules.
+If you believe a decision should be revisited, stop and ask — do not silently substitute
+an alternative and implement it. The cost of a wrong unilateral change is a rewrite.
+
 ### One problem at a time.
 Fix the stated issue. Do not refactor surrounding code, add features, or "improve"
 things that were not mentioned. Scope creep breaks working code.

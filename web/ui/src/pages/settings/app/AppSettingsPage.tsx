@@ -34,15 +34,6 @@ const sectionHeader: React.CSSProperties = {
   marginTop: 0,
 };
 
-function SkeletonRow({ width = "100%", height = 16 }: { width?: string | number; height?: number }) {
-  return (
-    <div
-      className="skeleton"
-      style={{ width, height, borderRadius: 4, marginBottom: 8 }}
-    />
-  );
-}
-
 function Pill({ ok, labelTrue, labelFalse }: { ok: boolean; labelTrue: string; labelFalse: string }) {
   return (
     <span
@@ -390,141 +381,30 @@ function UIPreferencesSection() {
 // ── Section 3: AI ─────────────────────────────────────────────────────────────
 
 function AISection() {
-  const { data: status, isLoading } = useSystemStatus();
-  const saveConfig = useSaveConfig();
-  const [key, setKey] = useState("");
-  const [show, setShow] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  function handleSave() {
-    if (!key.trim()) return;
-    saveConfig.mutate(
-      { ai_api_key: key.trim() },
-      {
-        onSuccess: () => {
-          setSaved(true);
-          setKey("");
-          setTimeout(() => setSaved(false), 2000);
-        },
-      }
-    );
-  }
-
   return (
-    <div style={card}>
-      <p style={sectionHeader}>AI Integration</p>
-
-      <div
-        style={{
-          background: "color-mix(in srgb, var(--color-accent) 6%, transparent)",
-          border: "1px solid var(--color-border-subtle)",
-          borderRadius: 6,
-          padding: "10px 14px",
-          marginBottom: 20,
-          fontSize: 12,
-          color: "var(--color-text-secondary)",
-          lineHeight: 1.5,
-        }}
-      >
-        AI features are <strong style={{ color: "var(--color-text-primary)" }}>fully opt-in</strong>{" "}
-        and require an Anthropic API key. No data is sent to Anthropic unless AI features are
-        explicitly enabled and used. Restart Luminarr after saving a new key.
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", rowGap: 10, fontSize: 13, marginBottom: 20 }}>
-        <span style={{ color: "var(--color-text-secondary)" }}>Status</span>
-        <div>
-          {isLoading ? (
-            <SkeletonRow width={80} height={20} />
-          ) : (
-            <Pill ok={status?.ai_enabled ?? false} labelTrue="Active" labelFalse="Not configured" />
-          )}
-        </div>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <span style={{ fontSize: 13, color: "var(--color-text-secondary)", fontWeight: 500 }}>
-          Anthropic API Key
+    <div style={{ ...card, opacity: 0.5, pointerEvents: "none", userSelect: "none" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <p style={{ ...sectionHeader, marginBottom: 0 }}>AI Integration</p>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color: "var(--color-text-muted)",
+            background: "var(--color-bg-subtle)",
+            padding: "3px 10px",
+            borderRadius: 4,
+          }}
+        >
+          In Development
         </span>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <input
-            type={show ? "text" : "password"}
-            placeholder="sk-ant-…"
-            value={key}
-            onChange={(e) => setKey(e.currentTarget.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            style={{
-              background: "var(--color-bg-elevated)",
-              border: "1px solid var(--color-border-default)",
-              borderRadius: 6,
-              padding: "8px 12px",
-              fontSize: 13,
-              color: "var(--color-text-primary)",
-              width: 320,
-              outline: "none",
-              fontFamily: "var(--font-family-mono)",
-            }}
-            onFocus={(e) => {
-              (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-accent)";
-            }}
-            onBlur={(e) => {
-              (e.currentTarget as HTMLInputElement).style.borderColor = "var(--color-border-default)";
-            }}
-          />
-          <button
-            onClick={() => setShow((s) => !s)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 12,
-              color: "var(--color-text-muted)",
-              padding: "4px 6px",
-            }}
-          >
-            {show ? "hide" : "show"}
-          </button>
-          <button
-            disabled={!key.trim() || saveConfig.isPending}
-            onClick={handleSave}
-            style={{
-              background:
-                !key.trim() || saveConfig.isPending
-                  ? "var(--color-bg-subtle)"
-                  : "var(--color-accent)",
-              color:
-                !key.trim() || saveConfig.isPending
-                  ? "var(--color-text-muted)"
-                  : "var(--color-accent-fg)",
-              border: "none",
-              borderRadius: 6,
-              padding: "8px 16px",
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: !key.trim() || saveConfig.isPending ? "not-allowed" : "pointer",
-            }}
-            onMouseEnter={(e) => {
-              if (key.trim() && !saveConfig.isPending)
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  "var(--color-accent-hover)";
-            }}
-            onMouseLeave={(e) => {
-              if (key.trim() && !saveConfig.isPending)
-                (e.currentTarget as HTMLButtonElement).style.background = "var(--color-accent)";
-            }}
-          >
-            {saveConfig.isPending ? "Saving…" : "Save"}
-          </button>
-          {saved && (
-            <span style={{ fontSize: 12, color: "var(--color-success)" }}>Saved ✓</span>
-          )}
-        </div>
-        {saveConfig.error && (
-          <p style={{ fontSize: 12, color: "var(--color-danger)", margin: 0 }}>
-            {saveConfig.error instanceof Error ? saveConfig.error.message : "Failed to save."}
-          </p>
-        )}
       </div>
+      <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--color-text-muted)", lineHeight: 1.5 }}>
+        AI-powered features like smart matching, release scoring, and content filtering are
+        planned for a future release. This section will allow you to configure an Anthropic
+        API key and manage AI preferences.
+      </p>
     </div>
   );
 }

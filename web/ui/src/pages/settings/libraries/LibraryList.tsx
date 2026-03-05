@@ -1032,7 +1032,7 @@ function FileTableRow({
           type="checkbox"
           checked={selected}
           disabled={imported || importing}
-          onChange={(e) => onToggleSelect({ shiftKey: e.nativeEvent.shiftKey })}
+          onChange={(e) => onToggleSelect({ shiftKey: (e.nativeEvent as MouseEvent).shiftKey })}
           style={{ cursor: !imported && !importing ? "pointer" : "default" }}
         />
       </td>

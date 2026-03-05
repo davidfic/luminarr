@@ -108,6 +108,32 @@ indexers at once. See the README Getting Started section.
 
 ---
 
+## Collections — Add Collection Search UX
+
+The "Add Collection" modal search needs further work. Current state:
+- Both TMDB `/search/person` and `/search/collection` are called in parallel
+- Franchises are shown first (top 5), then people (top 5)
+- TMDB's collection search returns 20 results for "alien" but "Alien Collection" is result #13 — the current 5-result cap may hide it
+
+Known issues / ideas to revisit:
+- Score/rank results to surface the most relevant franchise first (e.g. prefer exact-name matches)
+- Consider using TMDB's `/search/multi` endpoint which returns movies, people, and collections in a single relevance-ranked call, then extract the `belongs_to_collection` from movie results
+- Or surface the top TMDB collection result regardless of rank, and limit people to top 3
+
+---
+
+## Libraries Page — Action Buttons Right Padding
+
+The action buttons (Scan, Import, Edit, Delete) in the Libraries settings table row are flush
+against the right edge of the card container. The td already has `padding: "0 16px"` (same
+pattern as IndexerList and other settings tables), but the spacing doesn't appear visually.
+
+Needs browser-level debugging (DevTools inspect) to determine why the right padding isn't
+rendering. Possibly related to `width: 1` on the td + `table-layout: auto` + `overflow: hidden`
+on the card wrapper.
+
+---
+
 ## Grab → Queue Linkage for NZBs
 
 `grab_history` stores `client_item_id` for polling. SABnzbd/NZBGet return a different ID format
