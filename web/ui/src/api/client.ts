@@ -29,9 +29,16 @@ export async function apiFetch<T>(
     let title = res.statusText;
     let detail: string | undefined;
     try {
-      const body = (await res.json()) as { title?: string; error?: string; detail?: string };
-      title = body.detail ?? body.title ?? body.error ?? title;
-      detail = body.detail;
+      const body = (await res.json()) as {
+        title?: string;
+        error?: string;
+        detail?: string;
+        errors?: { message?: string }[];
+      };
+      // huma puts the underlying error in errors[0].message, not detail
+      const firstErr = body.errors?.[0]?.message;
+      title = firstErr ?? body.detail ?? body.title ?? body.error ?? title;
+      detail = firstErr ?? body.detail;
     } catch {
       // ignore parse error, use statusText
     }
