@@ -72,3 +72,40 @@ export function useGrabStats() {
     queryFn: () => apiFetch<GrabStats>("/stats/grabs"),
   });
 }
+
+export interface DecadeBucket {
+  decade: string;
+  count: number;
+}
+
+export interface GrowthPoint {
+  month: string;
+  added: number;
+  cumulative: number;
+}
+
+export interface GenreBucket {
+  genre: string;
+  count: number;
+}
+
+export function useDecadeStats() {
+  return useQuery({
+    queryKey: ["stats", "decades"],
+    queryFn: () => apiFetch<DecadeBucket[]>("/stats/decades"),
+  });
+}
+
+export function useGrowthStats() {
+  return useQuery({
+    queryKey: ["stats", "growth"],
+    queryFn: () => apiFetch<GrowthPoint[]>("/stats/growth"),
+  });
+}
+
+export function useGenreStats() {
+  return useQuery({
+    queryKey: ["stats", "genres"],
+    queryFn: () => apiFetch<GenreBucket[]>("/stats/genres"),
+  });
+}

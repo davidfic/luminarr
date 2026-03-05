@@ -1,14 +1,34 @@
 import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
   useCollectionStats,
   useQualityStats,
   useStorageStats,
   useGrabStats,
+  useDecadeStats,
+  useGrowthStats,
+  useGenreStats,
 } from "@/api/stats";
 import type {
   CollectionStats,
   QualityBucket,
   StorageStats,
   GrabStats,
+  DecadeBucket,
+  GrowthPoint,
+  GenreBucket,
 } from "@/api/stats";
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -20,18 +40,27 @@ function formatBytes(bytes: number): string {
   return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function pct(n: number, total: number): number {
-  if (total === 0) return 0;
-  return Math.round((n / total) * 100);
-}
+// Shared recharts style helpers
+const tooltipStyle = {
+  contentStyle: {
+    background: "var(--color-bg-elevated)",
+    border: "1px solid var(--color-border-subtle)",
+    borderRadius: 8,
+    fontSize: 12,
+    color: "var(--color-text-primary)",
+  },
+  cursor: { fill: "color-mix(in srgb, var(--color-accent) 8%, transparent)" },
+};
+
+const axisStyle = { fontSize: 11, fill: "var(--color-text-muted)" };
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
-function CardSkeleton() {
+function CardSkeleton({ height = 220 }: { height?: number }) {
   return (
     <div
       className="skeleton"
-      style={{ borderRadius: 12, height: 220, background: "var(--color-bg-elevated)" }}
+      style={{ borderRadius: 12, height, background: "var(--color-bg-elevated)" }}
     />
   );
 }
@@ -102,56 +131,13 @@ function StatBlock({
   );
 }
 
-// ── Bar row ───────────────────────────────────────────────────────────────────
+// ── Empty state ───────────────────────────────────────────────────────────────
 
-function BarRow({
-  label,
-  count,
-  total,
-  color,
-}: {
-  label: string;
-  count: number;
-  total: number;
-  color?: string;
-}) {
-  const width = pct(count, total);
+function EmptyChart({ message }: { message: string }) {
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 4,
-          fontSize: 13,
-        }}
-      >
-        <span style={{ color: "var(--color-text-secondary)", fontWeight: 500 }}>
-          {label}
-        </span>
-        <span style={{ color: "var(--color-text-muted)" }}>
-          {count.toLocaleString()} ({width}%)
-        </span>
-      </div>
-      <div
-        style={{
-          height: 6,
-          borderRadius: 3,
-          background: "var(--color-border-subtle)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${width}%`,
-            height: "100%",
-            borderRadius: 3,
-            background: color ?? "var(--color-accent)",
-            transition: "width 400ms ease",
-          }}
-        />
-      </div>
-    </div>
+    <p style={{ color: "var(--color-text-muted)", fontSize: 13, margin: "8px 0 0" }}>
+      {message}
+    </p>
   );
 }
 
@@ -160,7 +146,7 @@ function BarRow({
 function CollectionCard({ data }: { data: CollectionStats }) {
   return (
     <Card title="Collection">
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         <StatBlock label="Total Movies" value={data.total_movies.toLocaleString()} />
         <StatBlock label="Monitored" value={data.monitored.toLocaleString()} />
         <StatBlock label="Have File" value={data.with_file.toLocaleString()} />
@@ -172,23 +158,124 @@ function CollectionCard({ data }: { data: CollectionStats }) {
         <StatBlock
           label="Needs Upgrade"
           value={data.needs_upgrade.toLocaleString()}
-          accent={
-            data.needs_upgrade > 0 ? "var(--color-warning, #f59e0b)" : undefined
-          }
+          accent={data.needs_upgrade > 0 ? "var(--color-warning, #f59e0b)" : undefined}
         />
         <StatBlock
           label="Added Last 30d"
           value={data.recently_added.toLocaleString()}
-          accent={
-            data.recently_added > 0 ? "var(--color-success)" : undefined
-          }
+          accent={data.recently_added > 0 ? "var(--color-success)" : undefined}
         />
       </div>
     </Card>
   );
 }
 
+// ── Decades card ──────────────────────────────────────────────────────────────
+
+function DecadesCard({ data }: { data: DecadeBucket[] }) {
+  if (data.length === 0) {
+    return (
+      <Card title="Movies by Decade">
+        <EmptyChart message="Add movies to see your decade breakdown." />
+      </Card>
+    );
+  }
+  return (
+    <Card title="Movies by Decade">
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="var(--color-border-subtle)"
+            vertical={false}
+          />
+          <XAxis dataKey="decade" tick={axisStyle} axisLine={false} tickLine={false} />
+          <YAxis tick={axisStyle} axisLine={false} tickLine={false} allowDecimals={false} />
+          <Tooltip
+            contentStyle={tooltipStyle.contentStyle}
+            cursor={tooltipStyle.cursor}
+            formatter={(v: number | undefined) => [(v ?? 0).toLocaleString(), "Movies"]}
+          />
+          <Bar dataKey="count" fill="var(--color-accent)" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
+// ── Growth card ───────────────────────────────────────────────────────────────
+
+function GrowthCard({ data }: { data: GrowthPoint[] }) {
+  if (data.length < 2) {
+    return (
+      <Card title="Library Growth">
+        <EmptyChart message="Keep adding movies — growth chart will appear here." />
+      </Card>
+    );
+  }
+
+  // Format month labels as "Jan 25"
+  const chartData = data.map((p) => ({
+    ...p,
+    label: p.month
+      ? new Date(p.month + "-01").toLocaleDateString(undefined, {
+          month: "short",
+          year: "2-digit",
+        })
+      : p.month,
+  }));
+
+  return (
+    <Card title="Library Growth">
+      <ResponsiveContainer width="100%" height={180}>
+        <AreaChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+          <defs>
+            <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.25} />
+              <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="var(--color-border-subtle)"
+            vertical={false}
+          />
+          <XAxis
+            dataKey="label"
+            tick={axisStyle}
+            axisLine={false}
+            tickLine={false}
+            interval="preserveStartEnd"
+          />
+          <YAxis tick={axisStyle} axisLine={false} tickLine={false} allowDecimals={false} />
+          <Tooltip
+            contentStyle={tooltipStyle.contentStyle}
+            formatter={(v: number | undefined, name: string | undefined) => [
+              (v ?? 0).toLocaleString(),
+              name === "cumulative" ? "Total" : "Added",
+            ]}
+            labelFormatter={(label) => label}
+          />
+          <Area
+            type="monotone"
+            dataKey="cumulative"
+            stroke="var(--color-accent)"
+            strokeWidth={2}
+            fill="url(#growthGrad)"
+            dot={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
 // ── Quality card ──────────────────────────────────────────────────────────────
+
+const RESOLUTION_ORDER = ["2160p", "1080p", "720p", "SD", "unknown"];
+const SOURCE_ORDER = ["Remux", "Bluray", "WebDL", "WEBRip", "HDTV", "unknown"];
+const CODEC_ORDER = ["AV1", "x265", "x264", "unknown"];
+const HDR_ORDER = ["DolbyVision", "HDR10", "HDR10+", "HLG", "none", "unknown"];
 
 function aggregateBy(buckets: QualityBucket[], key: keyof QualityBucket) {
   const map: Record<string, number> = {};
@@ -196,15 +283,8 @@ function aggregateBy(buckets: QualityBucket[], key: keyof QualityBucket) {
     const k = b[key] as string;
     map[k] = (map[k] ?? 0) + b.count;
   }
-  return Object.entries(map)
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count);
+  return Object.entries(map).map(([label, count]) => ({ label, count }));
 }
-
-const RESOLUTION_ORDER = ["2160p", "1080p", "720p", "SD", "unknown"];
-const SOURCE_ORDER = ["Remux", "Bluray", "WebDL", "WEBRip", "HDTV", "unknown"];
-const CODEC_ORDER = ["AV1", "x265", "x264", "unknown"];
-const HDR_ORDER = ["DolbyVision", "HDR10", "HDR10+", "HLG", "none", "unknown"];
 
 function sortedGroup(
   buckets: QualityBucket[],
@@ -212,26 +292,26 @@ function sortedGroup(
   order: string[]
 ) {
   const items = aggregateBy(buckets, key);
-  return items.sort((a, b) => {
-    const ai = order.indexOf(a.label);
-    const bi = order.indexOf(b.label);
-    if (ai === -1 && bi === -1) return b.count - a.count;
-    if (ai === -1) return 1;
-    if (bi === -1) return -1;
-    return ai - bi;
-  });
+  return items
+    .sort((a, b) => {
+      const ai = order.indexOf(a.label);
+      const bi = order.indexOf(b.label);
+      if (ai === -1 && bi === -1) return b.count - a.count;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    })
+    .filter((it) => it.count > 0);
 }
 
-function QualityGroup({
+function QualityMiniChart({
   title,
-  items,
-  total,
+  data,
 }: {
   title: string;
-  items: { label: string; count: number }[];
-  total: number;
+  data: { label: string; count: number }[];
 }) {
-  if (items.length === 0) return null;
+  if (data.length === 0) return null;
   return (
     <div>
       <div
@@ -246,9 +326,37 @@ function QualityGroup({
       >
         {title}
       </div>
-      {items.map((it) => (
-        <BarRow key={it.label} label={it.label} count={it.count} total={total} />
-      ))}
+      <ResponsiveContainer width="100%" height={data.length * 28 + 8}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 0, right: 40, left: 0, bottom: 0 }}
+        >
+          <XAxis type="number" hide />
+          <YAxis
+            type="category"
+            dataKey="label"
+            tick={axisStyle}
+            axisLine={false}
+            tickLine={false}
+            width={72}
+          />
+          <Tooltip
+            contentStyle={tooltipStyle.contentStyle}
+            cursor={tooltipStyle.cursor}
+            formatter={(v: number | undefined) => [(v ?? 0).toLocaleString(), "Files"]}
+          />
+          <Bar dataKey="count" fill="var(--color-accent)" radius={[0, 4, 4, 0]}>
+            {data.map((_, i) => (
+              <Cell
+                key={i}
+                fill="var(--color-accent)"
+                fillOpacity={1 - i * (0.5 / Math.max(data.length - 1, 1))}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -258,9 +366,7 @@ function QualityCard({ data }: { data: QualityBucket[] }) {
   if (total === 0) {
     return (
       <Card title="Quality Distribution">
-        <p style={{ color: "var(--color-text-muted)", fontSize: 13, margin: 0 }}>
-          No movie files yet.
-        </p>
+        <EmptyChart message="No movie files yet." />
       </Card>
     );
   }
@@ -279,10 +385,10 @@ function QualityCard({ data }: { data: QualityBucket[] }) {
           gap: 24,
         }}
       >
-        <QualityGroup title="Resolution" items={resolutions} total={total} />
-        <QualityGroup title="Source" items={sources} total={total} />
-        <QualityGroup title="Codec" items={codecs} total={total} />
-        <QualityGroup title="HDR" items={hdrs} total={total} />
+        <QualityMiniChart title="Resolution" data={resolutions} />
+        <QualityMiniChart title="Source" data={sources} />
+        <QualityMiniChart title="Codec" data={codecs} />
+        <QualityMiniChart title="HDR" data={hdrs} />
       </div>
     </Card>
   );
@@ -290,64 +396,10 @@ function QualityCard({ data }: { data: QualityBucket[] }) {
 
 // ── Storage card ──────────────────────────────────────────────────────────────
 
-function StorageTrendLine({ points }: { points: { bytes: number; date: string }[] }) {
-  if (points.length < 2) {
-    return (
-      <p style={{ fontSize: 12, color: "var(--color-text-muted)", margin: "8px 0 0" }}>
-        Trend data is collecting — check back tomorrow.
-      </p>
-    );
-  }
-
-  const max = Math.max(...points.map((p) => p.bytes));
-  const min = Math.min(...points.map((p) => p.bytes));
-  const range = max - min || 1;
-  const W = 400;
-  const H = 60;
-  const stepX = W / (points.length - 1);
-
-  const coords = points.map((p, i) => {
-    const x = i * stepX;
-    const y = H - ((p.bytes - min) / range) * (H - 4) - 2;
-    return `${x},${y}`;
-  });
-
-  const pathD = `M ${coords.join(" L ")}`;
-  const areaD = `M ${coords[0]} L ${coords.join(" L ")} L ${(points.length - 1) * stepX},${H} L 0,${H} Z`;
-
-  return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginBottom: 6 }}>
-        Storage over time
-      </div>
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        style={{ width: "100%", height: 60, display: "block" }}
-        preserveAspectRatio="none"
-      >
-        <path d={areaD} fill="color-mix(in srgb, var(--color-accent) 15%, transparent)" />
-        <path d={pathD} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
-      </svg>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 10,
-          color: "var(--color-text-muted)",
-          marginTop: 4,
-        }}
-      >
-        <span>{points[0].date}</span>
-        <span>{points[points.length - 1].date}</span>
-      </div>
-    </div>
-  );
-}
-
 function StorageCard({ data }: { data: StorageStats }) {
-  const trendPoints = (data.trend ?? []).map((p) => ({
+  const trendData = (data.trend ?? []).map((p) => ({
     bytes: p.total_bytes,
-    date: new Date(p.captured_at).toLocaleDateString(undefined, {
+    label: new Date(p.captured_at).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
     }),
@@ -355,7 +407,7 @@ function StorageCard({ data }: { data: StorageStats }) {
 
   return (
     <Card title="Storage">
-      <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 16 }}>
         <StatBlock label="Total Used" value={formatBytes(data.total_bytes)} />
         <StatBlock label="Files" value={data.file_count.toLocaleString()} />
         {data.file_count > 0 && (
@@ -365,41 +417,126 @@ function StorageCard({ data }: { data: StorageStats }) {
           />
         )}
       </div>
-      <StorageTrendLine points={trendPoints} />
+
+      {trendData.length >= 2 ? (
+        <>
+          <div
+            style={{ fontSize: 11, color: "var(--color-text-muted)", marginBottom: 6 }}
+          >
+            Storage over time
+          </div>
+          <ResponsiveContainer width="100%" height={100}>
+            <AreaChart data={trendData} margin={{ top: 4, right: 0, left: -32, bottom: 0 }}>
+              <defs>
+                <linearGradient id="storageGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis
+                dataKey="label"
+                tick={axisStyle}
+                axisLine={false}
+                tickLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={axisStyle}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={formatBytes}
+              />
+              <Tooltip
+                contentStyle={tooltipStyle.contentStyle}
+                formatter={(v: number | undefined) => [formatBytes(v ?? 0), "Storage"]}
+              />
+              <Area
+                type="monotone"
+                dataKey="bytes"
+                stroke="var(--color-accent)"
+                strokeWidth={2}
+                fill="url(#storageGrad)"
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </>
+      ) : (
+        <EmptyChart message="Trend data is collecting — check back tomorrow." />
+      )}
     </Card>
   );
 }
 
 // ── Grabs card ────────────────────────────────────────────────────────────────
 
+const GRAB_COLORS = {
+  success: "var(--color-success)",
+  failed: "var(--color-danger, #ef4444)",
+};
+
 function GrabsCard({ data }: { data: GrabStats }) {
   const successPct = Math.round(data.success_rate * 100);
+  const pieData =
+    data.total_grabs > 0
+      ? [
+          { name: "Successful", value: data.successful },
+          { name: "Failed", value: data.failed },
+        ]
+      : [];
 
   return (
     <Card title="Grab Performance">
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 24 }}>
-        <StatBlock label="Total Grabs" value={data.total_grabs.toLocaleString()} />
-        <StatBlock label="Successful" value={data.successful.toLocaleString()} />
-        <StatBlock
-          label="Failed"
-          value={data.failed.toLocaleString()}
-          accent={data.failed > 0 ? "var(--color-danger, #ef4444)" : undefined}
-        />
-        <StatBlock
-          label="Success Rate"
-          value={`${successPct}%`}
-          accent={
-            successPct >= 90
-              ? "var(--color-success)"
-              : successPct >= 70
-              ? "var(--color-warning, #f59e0b)"
-              : "var(--color-danger, #ef4444)"
-          }
-        />
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {/* Donut chart */}
+        {pieData.length > 0 && (
+          <div style={{ flexShrink: 0 }}>
+            <PieChart width={120} height={120}>
+              <Pie
+                data={pieData}
+                cx={55}
+                cy={55}
+                innerRadius={36}
+                outerRadius={54}
+                dataKey="value"
+                strokeWidth={0}
+              >
+                <Cell fill={GRAB_COLORS.success} />
+                <Cell fill={GRAB_COLORS.failed} />
+              </Pie>
+              <Tooltip
+                contentStyle={tooltipStyle.contentStyle}
+                formatter={(v: number | undefined) => [(v ?? 0).toLocaleString()]}
+              />
+            </PieChart>
+          </div>
+        )}
+
+        {/* Number blocks */}
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", flex: 1 }}>
+          <StatBlock label="Total Grabs" value={data.total_grabs.toLocaleString()} />
+          <StatBlock label="Successful" value={data.successful.toLocaleString()} />
+          <StatBlock
+            label="Failed"
+            value={data.failed.toLocaleString()}
+            accent={data.failed > 0 ? "var(--color-danger, #ef4444)" : undefined}
+          />
+          <StatBlock
+            label="Success Rate"
+            value={`${successPct}%`}
+            accent={
+              successPct >= 90
+                ? "var(--color-success)"
+                : successPct >= 70
+                ? "var(--color-warning, #f59e0b)"
+                : "var(--color-danger, #ef4444)"
+            }
+          />
+        </div>
       </div>
 
       {(data.top_indexers ?? []).length > 0 && (
-        <div>
+        <div style={{ marginTop: 20 }}>
           <div
             style={{
               fontSize: 11,
@@ -412,13 +549,7 @@ function GrabsCard({ data }: { data: GrabStats }) {
           >
             Top Indexers
           </div>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: 13,
-            }}
-          >
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
                 {["Indexer", "Grabs", "Success Rate"].map((h) => (
@@ -486,6 +617,68 @@ function GrabsCard({ data }: { data: GrabStats }) {
   );
 }
 
+// ── Genres card ───────────────────────────────────────────────────────────────
+
+function GenresCard({ data }: { data: GenreBucket[] }) {
+  if (data.length === 0) {
+    return (
+      <Card title="Top Genres">
+        <EmptyChart message="No genre data yet." />
+      </Card>
+    );
+  }
+
+  const max = data[0]?.count ?? 1;
+
+  return (
+    <Card title="Top Genres">
+      <ResponsiveContainer width="100%" height={data.length * 30 + 8}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 0, right: 48, left: 0, bottom: 0 }}
+        >
+          <XAxis type="number" hide domain={[0, max]} />
+          <YAxis
+            type="category"
+            dataKey="genre"
+            tick={axisStyle}
+            axisLine={false}
+            tickLine={false}
+            width={100}
+          />
+          <Tooltip
+            contentStyle={tooltipStyle.contentStyle}
+            cursor={tooltipStyle.cursor}
+            formatter={(v: number | undefined) => [(v ?? 0).toLocaleString(), "Movies"]}
+          />
+          <Bar dataKey="count" fill="var(--color-accent)" radius={[0, 4, 4, 0]}>
+            {data.map((_, i) => (
+              <Cell
+                key={i}
+                fill="var(--color-accent)"
+                fillOpacity={1 - i * (0.45 / Math.max(data.length - 1, 1))}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
+// ── Error card ────────────────────────────────────────────────────────────────
+
+function ErrorCard({ title }: { title: string }) {
+  return (
+    <Card title={title}>
+      <p style={{ color: "var(--color-danger, #ef4444)", margin: 0, fontSize: 13 }}>
+        Failed to load.
+      </p>
+    </Card>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StatsPage() {
@@ -493,15 +686,18 @@ export default function StatsPage() {
   const quality = useQualityStats();
   const storage = useStorageStats();
   const grabs = useGrabStats();
+  const decades = useDecadeStats();
+  const growth = useGrowthStats();
+  const genres = useGenreStats();
+
+  const twoCol: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
+    gap: 20,
+  };
 
   return (
-    <div
-      style={{
-        padding: "32px 32px 64px",
-        maxWidth: 1200,
-        margin: "0 auto",
-      }}
-    >
+    <div style={{ padding: "32px 32px 64px", maxWidth: 1200, margin: "0 auto" }}>
       <h1
         style={{
           fontSize: 24,
@@ -514,65 +710,72 @@ export default function StatsPage() {
       </h1>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        {/* Collection */}
+        {/* Collection summary */}
         {collection.isLoading ? (
-          <CardSkeleton />
+          <CardSkeleton height={110} />
         ) : collection.error ? (
-          <Card title="Collection">
-            <p style={{ color: "var(--color-danger, #ef4444)", margin: 0, fontSize: 13 }}>
-              Failed to load collection stats.
-            </p>
-          </Card>
+          <ErrorCard title="Collection" />
         ) : collection.data ? (
           <CollectionCard data={collection.data} />
         ) : null}
 
-        {/* Quality + Storage side by side on wide screens */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
-            gap: 20,
-          }}
-        >
-          {quality.isLoading ? (
-            <CardSkeleton />
-          ) : quality.error ? (
-            <Card title="Quality Distribution">
-              <p style={{ color: "var(--color-danger, #ef4444)", margin: 0, fontSize: 13 }}>
-                Failed to load quality data.
-              </p>
-            </Card>
-          ) : quality.data ? (
-            <QualityCard data={quality.data} />
+        {/* Decades | Growth */}
+        <div style={twoCol}>
+          {decades.isLoading ? (
+            <CardSkeleton height={250} />
+          ) : decades.error ? (
+            <ErrorCard title="Movies by Decade" />
+          ) : decades.data ? (
+            <DecadesCard data={decades.data} />
           ) : null}
 
-          {storage.isLoading ? (
-            <CardSkeleton />
-          ) : storage.error ? (
-            <Card title="Storage">
-              <p style={{ color: "var(--color-danger, #ef4444)", margin: 0, fontSize: 13 }}>
-                Failed to load storage data.
-              </p>
-            </Card>
-          ) : storage.data ? (
-            <StorageCard data={storage.data} />
+          {growth.isLoading ? (
+            <CardSkeleton height={250} />
+          ) : growth.error ? (
+            <ErrorCard title="Library Growth" />
+          ) : growth.data ? (
+            <GrowthCard data={growth.data} />
           ) : null}
         </div>
 
-        {/* Grabs */}
-        {grabs.isLoading ? (
-          <CardSkeleton />
-        ) : grabs.error ? (
-          <Card title="Grab Performance">
-            <p style={{ color: "var(--color-danger, #ef4444)", margin: 0, fontSize: 13 }}>
-              Failed to load grab stats.
-            </p>
-          </Card>
-        ) : grabs.data ? (
-          <GrabsCard data={grabs.data} />
+        {/* Quality distribution — full width */}
+        {quality.isLoading ? (
+          <CardSkeleton height={200} />
+        ) : quality.error ? (
+          <ErrorCard title="Quality Distribution" />
+        ) : quality.data ? (
+          <QualityCard data={quality.data} />
+        ) : null}
+
+        {/* Storage | Grabs */}
+        <div style={twoCol}>
+          {storage.isLoading ? (
+            <CardSkeleton height={220} />
+          ) : storage.error ? (
+            <ErrorCard title="Storage" />
+          ) : storage.data ? (
+            <StorageCard data={storage.data} />
+          ) : null}
+
+          {grabs.isLoading ? (
+            <CardSkeleton height={220} />
+          ) : grabs.error ? (
+            <ErrorCard title="Grab Performance" />
+          ) : grabs.data ? (
+            <GrabsCard data={grabs.data} />
+          ) : null}
+        </div>
+
+        {/* Genres — full width */}
+        {genres.isLoading ? (
+          <CardSkeleton height={300} />
+        ) : genres.error ? (
+          <ErrorCard title="Top Genres" />
+        ) : genres.data ? (
+          <GenresCard data={genres.data} />
         ) : null}
       </div>
     </div>
   );
 }
+
