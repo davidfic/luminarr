@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -435,6 +435,14 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
   const [importDone, setImportDone] = useState(0);
   const [importTotal, setImportTotal] = useState(0);
 
+  // Sort state for the file table.
+  type SortField = "filename" | "size" | "title" | "match";
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  // Shift-click range selection.
+  const lastClickedPath = useRef<string | null>(null);
+
   // Populate rows when disk scan results arrive.
   useEffect(() => {
     if (!diskFiles) return;
@@ -522,8 +530,36 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
     });
   }
 
-  function toggleSelect(path: string) {
-    updateRow(path, { selected: !rows.get(path)?.selected });
+  function handleSelect(path: string, shiftKey: boolean) {
+    if (shiftKey && lastClickedPath.current && lastClickedPath.current !== path) {
+      // Shift-click: select range in displayRows order.
+      const startIdx = sortedRows.findIndex((r) => r.file.path === lastClickedPath.current);
+      const endIdx = sortedRows.findIndex((r) => r.file.path === path);
+      if (startIdx !== -1 && endIdx !== -1) {
+        const lo = Math.min(startIdx, endIdx);
+        const hi = Math.max(startIdx, endIdx);
+        setRows((prev) => {
+          const next = new Map(prev);
+          for (let i = lo; i <= hi; i++) {
+            const r = next.get(sortedRows[i].file.path);
+            if (r && !r.imported) next.set(sortedRows[i].file.path, { ...r, selected: true });
+          }
+          return next;
+        });
+      }
+    } else {
+      updateRow(path, { selected: !rows.get(path)?.selected });
+    }
+    lastClickedPath.current = path;
+  }
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
   }
 
   function toggleSelectAll() {
@@ -579,7 +615,49 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
   }
 
   const allRows = [...rows.values()];
-  const displayRows = showUnmatched ? allRows : allRows.filter((r) => r.match || r.imported);
+  const filteredRows = showUnmatched ? allRows : allRows.filter((r) => r.match || r.imported);
+
+  // Sort rows: imported always at bottom, then by the active sort field.
+  const sortedRows = useMemo(() => {
+    const arr = [...filteredRows];
+    arr.sort((a, b) => {
+      // Imported rows sink to bottom.
+      if (a.imported !== b.imported) return a.imported ? 1 : -1;
+
+      if (!sortField) return 0;
+      let cmp = 0;
+      switch (sortField) {
+        case "filename": {
+          const aName = a.file.path.split("/").pop() ?? "";
+          const bName = b.file.path.split("/").pop() ?? "";
+          cmp = aName.localeCompare(bName, undefined, { sensitivity: "base" });
+          break;
+        }
+        case "size":
+          cmp = a.file.size_bytes - b.file.size_bytes;
+          break;
+        case "title": {
+          const aTitle = a.file.parsed_title.toLowerCase();
+          const bTitle = b.file.parsed_title.toLowerCase();
+          cmp = aTitle.localeCompare(bTitle);
+          break;
+        }
+        case "match": {
+          // Matched > unmatched; then alphabetical by match title.
+          const aHas = a.match ? 1 : 0;
+          const bHas = b.match ? 1 : 0;
+          cmp = bHas - aHas;
+          if (cmp === 0 && a.match && b.match) {
+            cmp = a.match.title.localeCompare(b.match.title, undefined, { sensitivity: "base" });
+          }
+          break;
+        }
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+    return arr;
+  }, [filteredRows, sortField, sortDir]);
+
   const matched = allRows.filter((r) => r.match && !r.imported);
   const selected = allRows.filter((r) => r.selected && !r.imported);
   const unmatchedCount = allRows.filter((r) => !r.match && !r.imported).length;
@@ -771,7 +849,7 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
             <div style={{ padding: 32, fontSize: 13, color: "var(--color-danger)" }}>
               Failed to scan library. Make sure the root path is accessible.
             </div>
-          ) : displayRows.length === 0 ? (
+          ) : sortedRows.length === 0 ? (
             <div style={{ padding: 48, textAlign: "center" }}>
               <p style={{ margin: 0, fontSize: 14, color: "var(--color-text-secondary)", fontWeight: 500 }}>
                 {allRows.length === 0 ? "No candidates found" : "No matched files to show"}
@@ -786,9 +864,16 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--color-border-subtle)" }}>
-                  {["", "Filename", "Size", "Guessed Title", "TMDB Match"].map((h, i) => (
+                  {([
+                    { label: "", field: null },
+                    { label: "Filename", field: "filename" as SortField },
+                    { label: "Size", field: "size" as SortField },
+                    { label: "Guessed Title", field: "title" as SortField },
+                    { label: "TMDB Match", field: "match" as SortField },
+                  ]).map(({ label, field }) => (
                     <th
-                      key={i}
+                      key={label || "__cb"}
+                      onClick={field ? () => toggleSort(field) : undefined}
                       style={{
                         textAlign: "left",
                         padding: "10px 16px",
@@ -802,19 +887,26 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
                         top: 0,
                         background: "var(--color-bg-surface)",
                         zIndex: 1,
+                        cursor: field ? "pointer" : "default",
+                        userSelect: field ? "none" : undefined,
                       }}
                     >
-                      {h}
+                      {label}
+                      {field && sortField === field && (
+                        <span style={{ marginLeft: 4, fontSize: 10 }}>
+                          {sortDir === "asc" ? "\u25B2" : "\u25BC"}
+                        </span>
+                      )}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {displayRows.map((row) => (
+                {sortedRows.map((row) => (
                   <FileTableRow
                     key={row.file.path}
                     row={row}
-                    onToggleSelect={() => toggleSelect(row.file.path)}
+                    onToggleSelect={(e) => handleSelect(row.file.path, e.shiftKey)}
                     onOpenSearch={() => openSearch(row.file.path)}
                     onCloseSearch={() => closeSearch(row.file.path)}
                     onSearchQueryChange={(q) => setSearchQuery(row.file.path, q)}
@@ -899,7 +991,7 @@ function DiskScanModal({ library, onClose }: DiskScanModalProps) {
 
 interface FileTableRowProps {
   row: FileRowState;
-  onToggleSelect: () => void;
+  onToggleSelect: (e: { shiftKey: boolean }) => void;
   onOpenSearch: () => void;
   onCloseSearch: () => void;
   onSearchQueryChange: (q: string) => void;
@@ -940,7 +1032,7 @@ function FileTableRow({
           type="checkbox"
           checked={selected}
           disabled={imported || importing}
-          onChange={onToggleSelect}
+          onChange={(e) => onToggleSelect({ shiftKey: e.nativeEvent.shiftKey })}
           style={{ cursor: !imported && !importing ? "pointer" : "default" }}
         />
       </td>
