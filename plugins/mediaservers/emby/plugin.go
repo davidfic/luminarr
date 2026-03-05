@@ -4,6 +4,7 @@ package emby
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -58,9 +59,11 @@ type Server struct {
 // New creates a new Server from the given config.
 func New(cfg Config) *Server {
 	cfg.URL = strings.TrimRight(cfg.URL, "/")
+	transport := safedialer.LANTransport()
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // user-configured LAN server
 	return &Server{
 		cfg:    cfg,
-		client: &http.Client{Timeout: 30 * time.Second, Transport: safedialer.LANTransport()},
+		client: &http.Client{Timeout: 30 * time.Second, Transport: transport},
 	}
 }
 
