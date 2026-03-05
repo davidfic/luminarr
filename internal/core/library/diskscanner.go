@@ -63,6 +63,21 @@ func scanDisk(root string, knownPaths map[string]bool) ([]DiskFile, error) {
 			return nil //nolint:nilerr // returning nil in WalkDir callback continues the walk; we intentionally skip unreadable files
 		}
 		title, year := parseFilename(filepath.Base(path))
+		// If the filename yields a poor result (no year or purely numeric
+		// title), try the parent directory name which often contains the
+		// real movie title in torrent-style layouts.
+		if year == 0 || isNumeric(title) {
+			dir := filepath.Base(filepath.Dir(path))
+			if dir != "." && dir != "/" {
+				dirTitle, dirYear := parseFilename(dir)
+				if dirTitle != "" && !isNumeric(dirTitle) {
+					title = dirTitle
+					if dirYear > 0 {
+						year = dirYear
+					}
+				}
+			}
+		}
 		files = append(files, DiskFile{
 			Path:        path,
 			SizeBytes:   info.Size(),
@@ -98,6 +113,19 @@ func parseFilename(name string) (title string, year int) {
 	name = strings.TrimSpace(name)
 
 	return name, year
+}
+
+// isNumeric reports whether s is empty or consists entirely of digits and spaces.
+func isNumeric(s string) bool {
+	if s == "" {
+		return true
+	}
+	for _, c := range s {
+		if c != ' ' && (c < '0' || c > '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // ParseQualityFromPath infers video quality metadata from a file path using
