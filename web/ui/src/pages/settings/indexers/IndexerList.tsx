@@ -15,6 +15,11 @@ function strSetting(settings: Record<string, unknown>, key: string): string {
   return typeof v === "string" ? v : "";
 }
 
+function numSetting(settings: Record<string, unknown>, key: string): number {
+  const v = settings[key];
+  return typeof v === "number" ? v : 0;
+}
+
 // ── Shared styles ──────────────────────────────────────────────────────────────
 
 const inputStyle: React.CSSProperties = {
@@ -65,10 +70,11 @@ interface FormState {
   priority: string;
   url: string;
   api_key: string;
+  rate_limit: string;
 }
 
 function emptyForm(): FormState {
-  return { name: "", kind: "torznab", enabled: true, priority: "1", url: "", api_key: "" };
+  return { name: "", kind: "torznab", enabled: true, priority: "1", url: "", api_key: "", rate_limit: "0" };
 }
 
 function indexerToForm(cfg: IndexerConfig): FormState {
@@ -79,12 +85,15 @@ function indexerToForm(cfg: IndexerConfig): FormState {
     priority: String(cfg.priority),
     url: strSetting(cfg.settings, "url"),
     api_key: "",  // never pre-fill; server preserves existing key when omitted
+    rate_limit: String(numSetting(cfg.settings, "rate_limit")),
   };
 }
 
 function formToRequest(f: FormState): IndexerRequest {
   const settings: Record<string, unknown> = { url: f.url.trim() };
   if (f.api_key.trim()) settings.api_key = f.api_key.trim();
+  const rl = parseInt(f.rate_limit, 10) || 0;
+  if (rl > 0) settings.rate_limit = rl;
   return {
     name: f.name.trim(),
     kind: f.kind,
@@ -271,7 +280,7 @@ function IndexerModal({ editing, onClose }: ModalProps) {
           </div>
 
           {/* Misc */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
             <div style={fieldStyle}>
               <label style={labelStyle}>Priority</label>
               <input
@@ -283,6 +292,22 @@ function IndexerModal({ editing, onClose }: ModalProps) {
                 onFocus={focusBorder}
                 onBlur={blurBorder}
               />
+            </div>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Rate Limit</label>
+              <input
+                style={inputStyle}
+                type="number"
+                min="0"
+                value={form.rate_limit}
+                onChange={(e) => set("rate_limit", e.currentTarget.value)}
+                onFocus={focusBorder}
+                onBlur={blurBorder}
+                placeholder="0"
+              />
+              <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--color-text-muted)" }}>
+                Requests/min (0 = unlimited)
+              </p>
             </div>
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingBottom: 2 }}>
               <label

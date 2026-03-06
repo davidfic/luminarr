@@ -9,6 +9,7 @@ import (
 
 	"github.com/davidfic/luminarr/internal/core/indexer"
 	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
+	"github.com/davidfic/luminarr/internal/ratelimit"
 	"github.com/davidfic/luminarr/internal/registry"
 	"github.com/davidfic/luminarr/internal/testutil"
 	"github.com/davidfic/luminarr/pkg/plugin"
@@ -52,7 +53,7 @@ func newTestReg(mock *mockIndexer) *registry.Registry {
 // Use this when you need to insert seed rows into the same DB the service uses.
 func newServiceFromSQL(sqlDB *sql.DB, mock *mockIndexer) *indexer.Service {
 	q := dbsqlite.New(sqlDB)
-	return indexer.NewService(q, newTestReg(mock), nil)
+	return indexer.NewService(q, newTestReg(mock), nil, ratelimit.New())
 }
 
 func sampleSettings() json.RawMessage {

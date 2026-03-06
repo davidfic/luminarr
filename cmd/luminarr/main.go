@@ -40,6 +40,7 @@ import (
 	"github.com/davidfic/luminarr/internal/notifications"
 	"github.com/davidfic/luminarr/internal/plexsync"
 	"github.com/davidfic/luminarr/internal/radarrimport"
+	"github.com/davidfic/luminarr/internal/ratelimit"
 	"github.com/davidfic/luminarr/internal/registry"
 	"github.com/davidfic/luminarr/internal/scheduler"
 	"github.com/davidfic/luminarr/internal/scheduler/jobs"
@@ -248,7 +249,8 @@ func run() error {
 	librarySvc := library.NewService(queries, bus, tmdbClient)
 	movieSvc := movie.NewService(queries, tmdbClient, bus, logger)
 	blocklistSvc := blocklist.NewService(queries)
-	indexerSvc := indexer.NewService(queries, registry.Default, bus)
+	indexerRL := ratelimit.New()
+	indexerSvc := indexer.NewService(queries, registry.Default, bus, indexerRL)
 	downloaderSvc := downloader.NewService(queries, registry.Default, bus)
 	queueSvc := queue.NewService(queries, downloaderSvc, bus, logger)
 

@@ -16,6 +16,7 @@ import (
 	"github.com/davidfic/luminarr/internal/core/quality"
 	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
 	"github.com/davidfic/luminarr/internal/events"
+	"github.com/davidfic/luminarr/internal/ratelimit"
 	"github.com/davidfic/luminarr/internal/registry"
 	"github.com/davidfic/luminarr/pkg/plugin"
 )
@@ -61,11 +62,12 @@ type Service struct {
 	q   dbsqlite.Querier
 	reg *registry.Registry
 	bus *events.Bus
+	rl  *ratelimit.Registry
 }
 
 // NewService creates a new Service.
-func NewService(q dbsqlite.Querier, reg *registry.Registry, bus *events.Bus) *Service {
-	return &Service{q: q, reg: reg, bus: bus}
+func NewService(q dbsqlite.Querier, reg *registry.Registry, bus *events.Bus, rl *ratelimit.Registry) *Service {
+	return &Service{q: q, reg: reg, bus: bus, rl: rl}
 }
 
 // Create persists a new indexer configuration.
@@ -180,6 +182,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.q.DeleteIndexerConfig(ctx, id); err != nil {
 		return fmt.Errorf("deleting indexer %q: %w", id, err)
 	}
+	s.rl.Remove(id)
 	return nil
 }
 
@@ -188,6 +191,9 @@ func (s *Service) Test(ctx context.Context, id string) error {
 	cfg, err := s.Get(ctx, id)
 	if err != nil {
 		return err
+	}
+	if err := s.rl.Wait(ctx, cfg.ID, extractRateLimit(cfg.Settings)); err != nil {
+		return fmt.Errorf("rate limit wait: %w", err)
 	}
 	idx, err := s.reg.NewIndexer(cfg.Kind, cfg.Settings)
 	if err != nil {
@@ -225,6 +231,10 @@ func (s *Service) Search(ctx context.Context, query plugin.SearchQuery) ([]Searc
 		go func(row dbsqlite.IndexerConfig) {
 			defer wg.Done()
 			cfg, _ := rowToConfig(row)
+			if err := s.rl.Wait(ctx, cfg.ID, extractRateLimit(cfg.Settings)); err != nil {
+				resultsCh <- indexerResult{indexerID: cfg.ID, indexerName: cfg.Name, err: err}
+				return
+			}
 			idx, err := s.reg.NewIndexer(cfg.Kind, cfg.Settings)
 			if err != nil {
 				resultsCh <- indexerResult{indexerID: cfg.ID, indexerName: cfg.Name, err: err}
@@ -318,6 +328,10 @@ func (s *Service) GetRecent(ctx context.Context) ([]SearchResult, error) {
 		go func(row dbsqlite.IndexerConfig) {
 			defer wg.Done()
 			cfg, _ := rowToConfig(row)
+			if err := s.rl.Wait(ctx, cfg.ID, extractRateLimit(cfg.Settings)); err != nil {
+				resultsCh <- indexerResult{indexerID: cfg.ID, indexerName: cfg.Name, err: err}
+				return
+			}
 			idx, err := s.reg.NewIndexer(cfg.Kind, cfg.Settings)
 			if err != nil {
 				resultsCh <- indexerResult{indexerID: cfg.ID, indexerName: cfg.Name, err: err}
@@ -470,6 +484,16 @@ func boolToInt(b bool) int64 {
 		return 1
 	}
 	return 0
+}
+
+// extractRateLimit reads the rate_limit field from an indexer's settings JSON.
+// Returns 0 (unlimited) if the field is absent or unparseable.
+func extractRateLimit(settings json.RawMessage) int {
+	var s struct {
+		RateLimit int `json:"rate_limit"`
+	}
+	_ = json.Unmarshal(settings, &s)
+	return s.RateLimit
 }
 
 // mergeSettings returns newSettings with any keys absent from newSettings

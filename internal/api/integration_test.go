@@ -27,6 +27,7 @@ import (
 	"github.com/davidfic/luminarr/internal/core/queue"
 	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
 	"github.com/davidfic/luminarr/internal/events"
+	"github.com/davidfic/luminarr/internal/ratelimit"
 	"github.com/davidfic/luminarr/internal/registry"
 	"github.com/davidfic/luminarr/internal/scheduler"
 	"github.com/davidfic/luminarr/internal/testutil"
@@ -102,7 +103,7 @@ func newIntegrationRouterFromDB(t *testing.T, q *dbsqlite.Queries) http.Handler 
 	qualSvc := quality.NewService(q, bus)
 	libSvc := library.NewService(q, bus, nil)
 	movieSvc := movie.NewService(q, nil /* no TMDB */, bus, logger)
-	idxSvc := indexer.NewService(q, reg, bus)
+	idxSvc := indexer.NewService(q, reg, bus, ratelimit.New())
 	dlSvc := downloader.NewService(q, reg, bus)
 	queueSvc := queue.NewService(q, dlSvc, bus, logger)
 	notifSvc := notification.NewService(q, reg)
