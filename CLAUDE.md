@@ -29,6 +29,13 @@ coherent change: one migration, one service, one API handler, one frontend compo
 After every commit, push immediately. `make check` must pass before the push (the
 pre-push hook enforces this). Never accumulate a pile of uncommitted changes.
 
+### Push a release after every feature.
+When a new feature or meaningful change is pushed, create a GitHub release using
+`gh release create`. Use semantic versioning (bump patch for fixes, minor for features).
+The release notes must be proper markdown — include a summary of what changed, any
+new configuration options, and breaking changes if applicable. Use `gh release list`
+to find the current latest version before bumping.
+
 ---
 
 ## Auth — the API key
