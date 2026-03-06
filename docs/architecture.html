@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture - Luminarr</title>
+  <meta name="description" content="How Luminarr works: architecture, plugin system, quality model, event bus, and database design.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <!-- Nav -->
+  <nav>
+    <div class="nav-inner">
+      <a href="../index.html" class="nav-logo">luminarr</a>
+      <div class="nav-links">
+        <a href="../index.html#features">Features</a>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-trigger">
+            Docs
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="nav-dropdown-menu">
+            <a href="architecture.html">Architecture<div class="dd-desc">How Luminarr works</div></a>
+            <a href="security.html">Security<div class="dd-desc">Auth, secrets, SSRF protection</div></a>
+            <a href="custom-scripts.html">Custom Scripts<div class="dd-desc">Extend with any language</div></a>
+          </div>
+        </div>
+        <a href="https://github.com/davidfic/luminarr" class="gh-link" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="doc-page">
+    <div class="container">
+
+      <h1 class="fade-in">How Luminarr <span class="gradient">Works</span></h1>
+      <p class="page-desc fade-in">
+        A single Go binary that embeds a React frontend, serves both the API and UI from the same port,
+        and uses a plugin system for indexers, download clients, media servers, and notifications.
+      </p>
+
+      <!-- ── Architecture Overview ─────────────────────────────────── -->
+      <div class="content-section fade-in">
+        <div class="section-label">Overview</div>
+        <h2>Architecture</h2>
+        <p>
+          Luminarr compiles into a single self-contained binary. The React frontend is embedded at build time
+          via Go's <code>embed</code> package and served as static files. The API and UI share the same HTTP port (default 8282).
+        </p>
+
+        <div class="arch-diagram">
+          <div class="arch-layer">
+            <div class="arch-layer-label">Browser</div>
+            <div class="arch-layer-items">
+              <span class="arch-chip">React SPA</span>
+              <span class="arch-chip">React Query</span>
+              <span class="arch-chip">WebSocket</span>
+            </div>
+          </div>
+          <div class="arch-arrow">&darr; HTTP / WS</div>
+          <div class="arch-layer">
+            <div class="arch-layer-label">API Layer</div>
+            <div class="arch-layer-items">
+              <span class="arch-chip accent">Chi router</span>
+              <span class="arch-chip accent">Huma (OpenAPI)</span>
+              <span class="arch-chip accent">Auth middleware</span>
+            </div>
+          </div>
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-layer">
+            <div class="arch-layer-label">Core Services</div>
+            <div class="arch-layer-items">
+              <span class="arch-chip green">movie</span>
+              <span class="arch-chip green">quality</span>
+              <span class="arch-chip green">library</span>
+              <span class="arch-chip green">indexer</span>
+              <span class="arch-chip green">downloader</span>
+              <span class="arch-chip green">queue</span>
+              <span class="arch-chip green">notification</span>
+              <span class="arch-chip green">health</span>
+              <span class="arch-chip green">importer</span>
+              <span class="arch-chip green">plexsync</span>
+            </div>
+          </div>
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-layer">
+            <div class="arch-layer-label">Plugin Registry</div>
+            <div class="arch-layer-items">
+              <span class="arch-chip blue">torznab</span>
+              <span class="arch-chip blue">newznab</span>
+              <span class="arch-chip blue">qbittorrent</span>
+              <span class="arch-chip blue">deluge</span>
+              <span class="arch-chip blue">transmission</span>
+              <span class="arch-chip blue">sabnzbd</span>
+              <span class="arch-chip blue">nzbget</span>
+              <span class="arch-chip blue">plex</span>
+              <span class="arch-chip blue">emby</span>
+              <span class="arch-chip blue">jellyfin</span>
+              <span class="arch-chip blue">discord</span>
+              <span class="arch-chip blue">slack</span>
+              <span class="arch-chip blue">telegram</span>
+              <span class="arch-chip blue">webhook</span>
+              <span class="arch-chip blue">email</span>
+              <span class="arch-chip blue">command</span>
+            </div>
+          </div>
+          <div class="arch-arrow">&darr;</div>
+          <div class="arch-layer">
+            <div class="arch-layer-label">Infrastructure</div>
+            <div class="arch-layer-items">
+              <span class="arch-chip">SQLite (sqlc)</span>
+              <span class="arch-chip">Event bus</span>
+              <span class="arch-chip">Scheduler</span>
+              <span class="arch-chip">TMDB client</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Request & Background Flows ────────────────────────────── -->
+      <div class="content-section fade-in">
+        <div class="section-label">Data Flow</div>
+        <h2>Request and Background Flows</h2>
+
+        <h3>API request flow</h3>
+        <p>Every API call follows the same path through the stack:</p>
+        <div class="flow">
+          <span class="flow-step">Browser</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Chi router</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Auth middleware</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Huma handler</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Core service</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">sqlc querier</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">SQLite</span>
+        </div>
+
+        <h3>Background flow</h3>
+        <p>Scheduled jobs and event-driven workflows run independently of HTTP requests:</p>
+        <div class="flow">
+          <span class="flow-step">Scheduler tick</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Job (RSS sync, queue poll)</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Core service</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Event bus publish</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Subscribers (importer, notifier)</span>
+        </div>
+
+        <div class="callout info">
+          <p><strong>WebSocket updates:</strong> The queue page receives live progress via WebSocket. The server pushes updates when download client state changes &mdash; no polling required on the client side.</p>
+        </div>
+      </div>
+
+      <!-- ── Plugin System ─────────────────────────────────────────── -->
+      <div class="content-section fade-in">
+        <div class="section-label">Extensibility</div>
+        <h2>Plugin System</h2>
+        <p>
+          Plugins implement one of four interfaces. Each plugin registers itself via an <code>init()</code> function
+          and is activated by a blank import in the main entrypoint. Settings are stored as opaque JSON per config record.
+        </p>
+
+        <div class="card-grid">
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Indexer
+            </h4>
+            <p><code>Search(ctx, query, categories)</code> &rarr; releases. Torznab and Newznab protocols.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon green" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              DownloadClient
+            </h4>
+            <p><code>Add(ctx, release)</code>, <code>Status(ctx, id)</code>, queue management. 5 clients supported.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              MediaServer
+            </h4>
+            <p><code>RefreshLibrary(ctx, path)</code>, <code>Test(ctx)</code>. Plex, Emby, Jellyfin.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon amber" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              Notifier
+            </h4>
+            <p><code>Notify(ctx, event)</code>, <code>Test(ctx)</code>. 9 channels including custom scripts.</p>
+          </div>
+        </div>
+
+        <h3>Adding a plugin</h3>
+        <ol>
+          <li>Create <code>plugins/{kind}/{name}.go</code></li>
+          <li>Implement the interface</li>
+          <li>Call <code>registry.Default.Register*(kind, factory)</code> in <code>init()</code></li>
+          <li>Blank-import the package in <code>cmd/luminarr/main.go</code></li>
+          <li>Add the settings form to the React UI</li>
+        </ol>
+
+        <div class="callout info">
+          <p><strong>Settings sanitization:</strong> Each plugin can register a sanitizer that redacts sensitive fields (passwords, tokens) from API responses. The registry calls it automatically when serializing config records.</p>
+        </div>
+      </div>
+
+      <!-- ── Quality Model ─────────────────────────────────────────── -->
+      <div class="content-section fade-in">
+        <div class="section-label">Core Concept</div>
+        <h2>Quality Model</h2>
+        <p>
+          Luminarr's quality model has four explicit dimensions. Unlike Radarr's Custom Formats (regex + scoring),
+          Luminarr lets you pick what you want from dropdowns. The profile is self-documenting.
+        </p>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Values</th>
+              <th>Score weight</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Resolution</td>
+              <td>SD, 720p, 1080p, 2160p</td>
+              <td>&times; 100</td>
+            </tr>
+            <tr>
+              <td>Source</td>
+              <td>CAM, DVD, HDTV, WebRip, WebDL, Bluray, Remux</td>
+              <td>&times; 10</td>
+            </tr>
+            <tr>
+              <td>Codec</td>
+              <td>Unknown, XviD, x264, x265, AV1</td>
+              <td>&times; 1</td>
+            </tr>
+            <tr>
+              <td>HDR</td>
+              <td>None, HDR10, Dolby Vision, HLG, HDR10+</td>
+              <td>Separate flag</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>
+          <strong>Scoring formula:</strong> <code>Score = resolution &times; 100 + source &times; 10 + codec</code>.
+          Used for upgrade decisions and cutoff comparisons. HDR is tracked as a separate flag &mdash; you either want it or you don't.
+        </p>
+
+        <h3>Quality profiles</h3>
+        <ul>
+          <li><strong>Cutoff</strong> &mdash; minimum acceptable quality; anything below is always upgraded if available</li>
+          <li><strong>Qualities</strong> &mdash; ordered list of acceptable quality combinations</li>
+          <li><strong>Upgrade allowed</strong> &mdash; whether to grab a better release when one appears</li>
+          <li><strong>Upgrade until</strong> &mdash; stop upgrading once this quality is reached</li>
+        </ul>
+      </div>
+
+      <!-- ── Event System ──────────────────────────────────────────── -->
+      <div class="content-section fade-in">
+        <div class="section-label">Pub/Sub</div>
+        <h2>Event System</h2>
+        <p>
+          The event bus is an in-process pub/sub system. Services publish events; registered handlers
+          receive them in separate goroutines. No external message broker required.
+        </p>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>When it fires</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>grab_started</code></td><td>A release was sent to a download client</td></tr>
+            <tr><td><code>grab_failed</code></td><td>A grab attempt failed</td></tr>
+            <tr><td><code>download_done</code></td><td>Download client reports completion</td></tr>
+            <tr><td><code>import_complete</code></td><td>File moved/hardlinked into library</td></tr>
+            <tr><td><code>import_failed</code></td><td>Import attempt failed</td></tr>
+            <tr><td><code>health_issue</code></td><td>Health check detected a problem</td></tr>
+            <tr><td><code>health_ok</code></td><td>Previously failing check recovered</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Subscribers</h3>
+        <div class="card-grid">
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon green" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Importer
+            </h4>
+            <p>Subscribes to <code>download_done</code>. Moves or hardlinks the completed file into the library, triggers media scan if ffprobe is available.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon amber" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              Notification Dispatcher
+            </h4>
+            <p>Subscribes to all events. Fans out to every enabled notification channel &mdash; Discord, Slack, webhook, custom scripts, etc.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Media Server Integration ──────────────────────────────── -->
+      <div class="content-section fade-in">
+        <div class="section-label">Integration</div>
+        <h2>Media Server Sync</h2>
+        <p>
+          Luminarr connects to your media server for two purposes: automatic library refresh after imports,
+          and bidirectional library comparison via the Library Sync page.
+        </p>
+
+        <h3>Supported servers</h3>
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Server</th>
+              <th>API format</th>
+              <th>Auth method</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Plex</td>
+              <td>XML</td>
+              <td><code>X-Plex-Token</code> header</td>
+            </tr>
+            <tr>
+              <td>Emby</td>
+              <td>JSON REST</td>
+              <td><code>api_key</code> query param</td>
+            </tr>
+            <tr>
+              <td>Jellyfin</td>
+              <td>JSON REST</td>
+              <td><code>MediaBrowser Token=</code> header</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Library sync data flow</h3>
+        <p>The sync service compares TMDB IDs from both sides to produce a bidirectional diff:</p>
+        <div class="flow">
+          <span class="flow-step">Media Server API</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Extract TMDB IDs</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Set diff vs Luminarr DB</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-step">Server-only / Luminarr-only lists</span>
+        </div>
+
+        <div class="callout info">
+          <p><strong>Matching by TMDB ID only.</strong> No fuzzy title+year matching. Movies without a TMDB GUID on your media server are counted as "unmatched" and excluded from the comparison.</p>
+        </div>
+      </div>
+
+      <!-- ── Database ──────────────────────────────────────────────── -->
+      <div class="content-section fade-in">
+        <div class="section-label">Storage</div>
+        <h2>Database</h2>
+        <p>
+          Luminarr uses SQLite by default. Schema changes are managed with
+          <a href="https://github.com/pressly/goose" style="color:var(--accent)">goose</a> numbered SQL migrations
+          that run automatically on startup. Queries are generated by
+          <a href="https://sqlc.dev" style="color:var(--accent)">sqlc</a> &mdash; type-safe Go from plain SQL.
+        </p>
+
+        <ul>
+          <li><strong>Migrations</strong> &mdash; numbered SQL files in <code>internal/db/migrations/</code>, applied automatically</li>
+          <li><strong>Query layer</strong> &mdash; edit <code>.sql</code> files, run <code>sqlc generate</code>, get type-safe Go</li>
+          <li><strong>ID strategy</strong> &mdash; UUID v4 strings for all primary keys</li>
+          <li><strong>No ORM</strong> &mdash; direct SQL with generated types, no abstraction overhead</li>
+        </ul>
+
+        <div class="callout success">
+          <p><strong>Zero-config storage.</strong> The database file defaults to <code>/config/luminarr.db</code> in Docker (the persistent volume) or <code>~/.config/luminarr/luminarr.db</code> locally. No external database server to install or manage.</p>
+        </div>
+      </div>
+
+      <!-- ── Scheduled Jobs ────────────────────────────────────────── -->
+      <div class="content-section fade-in">
+        <div class="section-label">Automation</div>
+        <h2>Scheduled Jobs</h2>
+        <p>
+          Background jobs run on simple <code>time.Ticker</code> intervals. No cron syntax, no external scheduler.
+        </p>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>Interval</th>
+              <th>What it does</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>RSS sync</td>
+              <td>15 min</td>
+              <td>Checks all indexers for new releases matching monitored movies</td>
+            </tr>
+            <tr>
+              <td>Queue poll</td>
+              <td>30 sec</td>
+              <td>Polls download clients for progress, publishes events on completion</td>
+            </tr>
+            <tr>
+              <td>Library scan</td>
+              <td>6 hours</td>
+              <td>Verifies files on disk match the database, detects missing or new files</td>
+            </tr>
+            <tr>
+              <td>Metadata refresh</td>
+              <td>24 hours</td>
+              <td>Refreshes TMDB metadata for movies that haven't been updated recently</td>
+            </tr>
+            <tr>
+              <td>Storage snapshot</td>
+              <td>24 hours</td>
+              <td>Records library storage stats for the growth chart on the Stats page</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── Development ───────────────────────────────────────────── -->
+      <div class="content-section fade-in">
+        <div class="section-label">Development</div>
+        <h2>Building from Source</h2>
+        <p>Prerequisites: Go 1.23+, Node.js 20+.</p>
+
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">Terminal</span>
+          </div>
+          <div class="code-block-body">
+<pre><span class="syn-comment"># Clone and build</span>
+git clone https://github.com/davidfic/luminarr
+<span class="syn-kw">cd</span> luminarr
+<span class="syn-kw">cd</span> web/ui && npm install && npm run build && <span class="syn-kw">cd</span> ../..
+make build
+./bin/luminarr
+
+<span class="syn-comment"># Development (two terminals)</span>
+make dev                    <span class="syn-comment"># Go backend with hot reload</span>
+<span class="syn-kw">cd</span> web/ui && npm run dev    <span class="syn-comment"># React dev server on :5173</span></pre>
+          </div>
+        </div>
+
+        <p>
+          The React dev server proxies <code>/api</code> requests to <code>localhost:8282</code>.
+          In production, the Go binary embeds the built frontend via <code>go:embed</code> &mdash; a single
+          binary with zero external dependencies.
+        </p>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-left">MIT License &middot; luminarr</div>
+        <div class="footer-links">
+          <a href="https://github.com/davidfic/luminarr" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/davidfic/luminarr/blob/main/docs/GETTING_STARTED.md" target="_blank" rel="noopener">Getting Started</a>
+          <a href="security.html">Security</a>
+          <a href="custom-scripts.html">Custom Scripts</a>
+          <a href="https://github.com/davidfic/luminarr/issues" target="_blank" rel="noopener">Issues</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
+  </script>
+</body>
+</html>

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Model - Luminarr</title>
+  <meta name="description" content="How Luminarr protects your self-hosted instance: API authentication, secret redaction, SSRF protection, and security headers.">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Luminarr Security Model">
+  <meta property="og:description" content="Defense-in-depth for self-hosted movie automation. API key auth, SSRF protection, secret redaction, and zero telemetry.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://luminarr.video/docs/security.html">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-inner">
+      <a href="../index.html" class="nav-logo">luminarr</a>
+      <div class="nav-links">
+        <a href="../index.html">Home</a>
+        <a href="../index.html#features">Features</a>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-trigger">
+            Docs
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="nav-dropdown-menu">
+            <a href="architecture.html">
+              Architecture
+              <div class="dd-desc">System design &amp; internals</div>
+            </a>
+            <a href="security.html">
+              Security
+              <div class="dd-desc">Auth, SSRF, secret handling</div>
+            </a>
+            <a href="custom-scripts.html">
+              Custom Scripts
+              <div class="dd-desc">Automate with shell scripts</div>
+            </a>
+          </div>
+        </div>
+        <a href="https://github.com/davidfic/luminarr" class="gh-link" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Page content -->
+  <main class="doc-page">
+    <div class="container">
+
+      <!-- Page header -->
+      <h1>Security <span class="gradient">Model</span></h1>
+      <p class="page-desc">
+        Luminarr is designed for self-hosted environments where you control the machine,
+        the network, and the data. Its security model is layered: strong authentication at
+        the boundary, careful handling of secrets throughout, and explicit protection against
+        server-side request forgery for every outbound connection.
+      </p>
+
+      <!-- 1. API Authentication -->
+      <div class="content-section fade-in">
+        <div class="section-label">Authentication</div>
+        <h2>API Authentication</h2>
+        <p>
+          Every request to the Luminarr API requires a valid API key. The key is generated
+          automatically on first start using Go's <code>crypto/rand</code> — 32 bytes of
+          cryptographically random data, rendered as a 64-character hex string. It is never
+          derived from a password or a predictable seed.
+        </p>
+        <p>
+          At startup, the server bakes the key directly into the HTML it serves. The browser
+          receives the key as a JavaScript constant and attaches it as an <code>X-Api-Key</code>
+          header on every API call. The server validates the header using constant-time
+          comparison, which prevents timing-based key guessing attacks.
+        </p>
+
+        <div class="flow">
+          <div class="flow-step">Browser</div>
+          <div class="flow-arrow">&#8594;</div>
+          <div class="flow-step"><code>X-Api-Key</code> header</div>
+          <div class="flow-arrow">&#8594;</div>
+          <div class="flow-step">Huma middleware</div>
+          <div class="flow-arrow">&#8594;</div>
+          <div class="flow-step">Constant-time compare</div>
+          <div class="flow-arrow">&#8594;</div>
+          <div class="flow-step">Handler</div>
+        </div>
+
+        <h3>Key behaviour</h3>
+        <ul>
+          <li>Key is generated with <code>crypto/rand.Read</code> — no Math.random, no time seeds.</li>
+          <li>Comparison uses <code>crypto/subtle.ConstantTimeCompare</code> to prevent timing attacks regardless of key length or match prefix.</li>
+          <li>The <code>GET /health</code> endpoint is intentionally unauthenticated so load balancers and container orchestrators can probe liveness without credentials.</li>
+          <li>In Docker, the key regenerates on every container restart unless you set <code>LUMINARR_AUTH_API_KEY</code> as an environment variable or mount a <code>config.yaml</code> with a fixed value. After any restart without a fixed key, hard-refresh your browser tab to pick up the new key.</li>
+        </ul>
+      </div>
+
+      <!-- 2. Secret type -->
+      <div class="content-section fade-in">
+        <div class="section-label">Secret Handling</div>
+        <h2>The <code>Secret</code> Type</h2>
+        <p>
+          Credentials that Luminarr stores — TMDB API keys, indexer API keys, download client
+          passwords, notification webhook URLs — are all wrapped in a <code>Secret</code> type
+          that actively prevents accidental exposure. It is not enough to be careful; the type
+          makes leakage structurally impossible in the common cases.
+        </p>
+
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">internal/config/secret.go</span>
+          </div>
+          <div class="code-block-body">
+            <pre><span class="syn-comment">// Every rendering surface redacts the value automatically.</span>
+<span class="syn-key">func</span> (<span class="syn-type">s</span> <span class="syn-type">Secret</span>) <span class="syn-fn">String</span>()      <span class="syn-type">string</span>        { <span class="syn-key">return</span> <span class="syn-str">"***"</span> }
+<span class="syn-key">func</span> (<span class="syn-type">s</span> <span class="syn-type">Secret</span>) <span class="syn-fn">MarshalJSON</span>() (<span class="syn-type">[]byte</span>, <span class="syn-type">error</span>) { <span class="syn-key">return</span> <span class="syn-fn">json.Marshal</span>(<span class="syn-str">"***"</span>) }
+<span class="syn-key">func</span> (<span class="syn-type">s</span> <span class="syn-type">Secret</span>) <span class="syn-fn">LogValue</span>()    <span class="syn-type">slog.Value</span>    { <span class="syn-key">return</span> <span class="syn-fn">slog.StringValue</span>(<span class="syn-str">"***"</span>) }
+<span class="syn-key">func</span> (<span class="syn-type">s</span> <span class="syn-type">Secret</span>) <span class="syn-fn">GoString</span>()    <span class="syn-type">string</span>        { <span class="syn-key">return</span> <span class="syn-str">"***"</span> }
+<span class="syn-key">func</span> (<span class="syn-type">s</span> <span class="syn-type">Secret</span>) <span class="syn-fn">MarshalText</span>() (<span class="syn-type">[]byte</span>, <span class="syn-type">error</span>) { <span class="syn-key">return</span> []<span class="syn-type">byte</span>(<span class="syn-str">"***"</span>), <span class="syn-key">nil</span> }
+
+<span class="syn-comment">// Call .Value() only when you actually need to send the secret.</span>
+<span class="syn-key">func</span> (<span class="syn-type">s</span> <span class="syn-type">Secret</span>) <span class="syn-fn">Value</span>() <span class="syn-type">string</span> { <span class="syn-key">return</span> s.value }</pre>
+          </div>
+        </div>
+
+        <p>
+          This means that printing a <code>Secret</code> to a log line, marshalling it to JSON
+          for an API response, or formatting it in a <code>%v</code> or <code>%#v</code> call
+          all produce <code>"***"</code>. The only way to retrieve the actual value is an explicit
+          call to <code>.Value()</code>, which is reserved for the moment the credential is
+          sent to the external service it belongs to.
+        </p>
+
+        <p>Credentials covered by this type include:</p>
+        <ul>
+          <li>TMDB API key</li>
+          <li>Indexer API keys (Torznab, Newznab)</li>
+          <li>Download client passwords (qBittorrent, Deluge)</li>
+          <li>Notification webhook URLs and auth tokens (Discord, email credentials)</li>
+        </ul>
+      </div>
+
+      <!-- 3. SSRF Protection -->
+      <div class="content-section fade-in">
+        <div class="section-label">Network Protection</div>
+        <h2>SSRF Protection</h2>
+        <p>
+          Server-side request forgery is a meaningful threat when users can configure arbitrary
+          URLs — for indexers, download clients, notification targets, and media servers.
+          Luminarr wraps <code>net.Dialer</code> in a custom <code>safedialer</code> package
+          that intercepts every outbound TCP connection, resolves the hostname, and validates
+          every IP returned by DNS before allowing the connection to proceed.
+        </p>
+        <p>
+          Two modes are available, applied per connection type based on whether the target
+          is expected to be on your local network.
+        </p>
+
+        <div class="card-grid">
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Strict mode
+            </h4>
+            <p>Blocks loopback (127.0.0.0/8, ::1), all RFC-1918 private ranges, link-local (169.254.0.0/16, fe80::/10), CGNAT and Tailscale (100.64.0.0/10), and unspecified (0.0.0.0, ::). Used by indexers and notification webhooks, which should always resolve to public IPs.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+              LAN mode
+            </h4>
+            <p>Allows RFC-1918 private addresses so you can point Luminarr at self-hosted services on your home network. Still blocks cloud metadata endpoints (169.254.169.254 and equivalents) and IPv6 link-local. Used by download clients and media servers.</p>
+          </div>
+        </div>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>CIDR range</th>
+              <th>Description</th>
+              <th>Strict</th>
+              <th>LAN</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>127.0.0.0/8</code></td>
+              <td>IPv4 loopback</td>
+              <td>Blocked</td>
+              <td>Blocked</td>
+            </tr>
+            <tr>
+              <td><code>::1/128</code></td>
+              <td>IPv6 loopback</td>
+              <td>Blocked</td>
+              <td>Blocked</td>
+            </tr>
+            <tr>
+              <td><code>10.0.0.0/8</code></td>
+              <td>RFC-1918 private</td>
+              <td>Blocked</td>
+              <td>Allowed</td>
+            </tr>
+            <tr>
+              <td><code>172.16.0.0/12</code></td>
+              <td>RFC-1918 private</td>
+              <td>Blocked</td>
+              <td>Allowed</td>
+            </tr>
+            <tr>
+              <td><code>192.168.0.0/16</code></td>
+              <td>RFC-1918 private</td>
+              <td>Blocked</td>
+              <td>Allowed</td>
+            </tr>
+            <tr>
+              <td><code>169.254.0.0/16</code></td>
+              <td>Link-local / cloud metadata</td>
+              <td>Blocked</td>
+              <td>Blocked</td>
+            </tr>
+            <tr>
+              <td><code>fe80::/10</code></td>
+              <td>IPv6 link-local</td>
+              <td>Blocked</td>
+              <td>Blocked</td>
+            </tr>
+            <tr>
+              <td><code>100.64.0.0/10</code></td>
+              <td>CGNAT / Tailscale</td>
+              <td>Blocked</td>
+              <td>Allowed</td>
+            </tr>
+            <tr>
+              <td><code>0.0.0.0/8</code></td>
+              <td>Unspecified</td>
+              <td>Blocked</td>
+              <td>Blocked</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 4. Security Headers -->
+      <div class="content-section fade-in">
+        <div class="section-label">HTTP Security</div>
+        <h2>Security Headers &amp; Limits</h2>
+        <p>
+          Every response from the Luminarr server includes a standard set of security headers.
+          Request bodies are also limited in size to prevent resource exhaustion attacks from
+          malformed or oversized payloads.
+        </p>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Header / Limit</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Content-Security-Policy</code></td>
+              <td><code>default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://image.tmdb.org; font-src 'self'</code></td>
+            </tr>
+            <tr>
+              <td><code>X-Content-Type-Options</code></td>
+              <td><code>nosniff</code></td>
+            </tr>
+            <tr>
+              <td><code>X-Frame-Options</code></td>
+              <td><code>DENY</code></td>
+            </tr>
+            <tr>
+              <td><code>Referrer-Policy</code></td>
+              <td><code>same-origin</code></td>
+            </tr>
+            <tr>
+              <td>Request body limit</td>
+              <td>1 MiB</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>
+          The Content Security Policy limits image sources to TMDB's image CDN in addition to
+          same-origin assets. This is intentional — movie posters and backdrops are fetched
+          directly from <code>image.tmdb.org</code> and displayed inline. All other external
+          origins are blocked.
+        </p>
+      </div>
+
+      <!-- 5. Network Boundaries -->
+      <div class="content-section fade-in">
+        <div class="section-label">Network Boundaries</div>
+        <h2>Network Boundaries</h2>
+        <p>
+          Luminarr makes outbound connections only to services you have explicitly configured.
+          The table below documents every connection type, the direction, when it occurs, and
+          which transport mode is used.
+        </p>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Direction</th>
+              <th>When</th>
+              <th>Transport</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>TMDB</td>
+              <td>Outbound</td>
+              <td>Movie metadata lookup, poster fetch</td>
+              <td>Strict</td>
+            </tr>
+            <tr>
+              <td>Indexers (Torznab/Newznab)</td>
+              <td>Outbound</td>
+              <td>RSS feed poll, manual search</td>
+              <td>Strict</td>
+            </tr>
+            <tr>
+              <td>Download clients</td>
+              <td>Outbound</td>
+              <td>Add torrent, queue poll, import</td>
+              <td>LAN</td>
+            </tr>
+            <tr>
+              <td>Media servers</td>
+              <td>Outbound</td>
+              <td>Library refresh after import</td>
+              <td>LAN</td>
+            </tr>
+            <tr>
+              <td>Notification targets</td>
+              <td>Outbound</td>
+              <td>Grab, import, health events</td>
+              <td>Strict</td>
+            </tr>
+            <tr>
+              <td>Browser</td>
+              <td>Inbound</td>
+              <td>UI requests, API calls, WebSocket</td>
+              <td>Auth required</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout info">
+          <p><strong>No undeclared connections.</strong> Luminarr never initiates connections to services you haven't explicitly configured. There are no analytics endpoints, no crash reporting servers, and no update check URLs.</p>
+        </div>
+      </div>
+
+      <!-- 6. Script Sandbox -->
+      <div class="content-section fade-in">
+        <div class="section-label">Custom Scripts</div>
+        <h2>Script Sandbox</h2>
+        <p>
+          Luminarr can execute user-provided shell scripts in response to events — post-import
+          processing, custom notifications, library maintenance. Because scripts are a power-user
+          feature, the security model is explicit rather than restrictive: scripts run with full
+          container user permissions by design, but the path to invoking them is hardened against
+          injection.
+        </p>
+
+        <h3>Path traversal protection</h3>
+        <p>
+          Script names submitted through the API are validated before any filesystem access
+          occurs. Only plain filenames are accepted — no forward slashes, no backslashes, no
+          <code>..</code> components. The filename is then resolved through three independent
+          checks: <code>filepath.Join</code>, <code>filepath.Clean</code>, and
+          <code>filepath.Rel</code>. All three must confirm the resolved path stays within the
+          configured scripts directory. If any check fails, the request is rejected.
+        </p>
+
+        <h3>Execution model</h3>
+        <ul>
+          <li>Scripts inherit the environment of the Luminarr process, including any variables set at container start.</li>
+          <li>A configurable timeout (default 30 seconds) bounds execution time. After the timeout, a SIGKILL is sent — the script cannot prevent termination.</li>
+          <li>Standard output and standard error are captured and returned in the API response for debugging.</li>
+          <li>Exit codes are reported; non-zero exits are treated as failures and logged.</li>
+        </ul>
+
+        <div class="callout warn">
+          <p><strong>Scripts run as the Luminarr process user.</strong> Only place scripts you trust in <code>/config/scripts/</code>. If your container runs as root, so do your scripts. See the <a href="custom-scripts.html">Custom Scripts guide</a> for the recommended setup with a non-root user.</p>
+        </div>
+      </div>
+
+      <!-- 7. What Luminarr does NOT do -->
+      <div class="content-section fade-in">
+        <div class="section-label">Privacy Guarantees</div>
+        <h2>What Luminarr Does Not Do</h2>
+        <p>
+          These are not aspirational statements — they are structural properties of the codebase.
+          There is no telemetry library. There is no analytics endpoint. There is no update check
+          URL. The source code is auditable.
+        </p>
+
+        <div class="card-grid">
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon green" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              No telemetry
+            </h4>
+            <p>Zero usage analytics. No event tracking, no page view counters, no behavioral data collection of any kind.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon green" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              No crash reporting
+            </h4>
+            <p>Errors are logged locally. No panic data, stack traces, or diagnostic payloads are sent to any external service.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon green" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              No update checks
+            </h4>
+            <p>Luminarr never phones home to check for new versions. Update availability is communicated through GitHub releases only.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon green" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              No shared API keys
+            </h4>
+            <p>You supply your own TMDB API key. There is no pooled or bundled key that ties your requests to anyone else's traffic.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-left">
+          MIT License &middot; luminarr
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/davidfic/luminarr" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/davidfic/luminarr/blob/main/docs/GETTING_STARTED.md" target="_blank" rel="noopener">Docs</a>
+          <a href="architecture.html">Architecture</a>
+          <a href="https://github.com/davidfic/luminarr/issues" target="_blank" rel="noopener">Issues</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
+  </script>
+</body>
+</html>

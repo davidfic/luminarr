@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Scripts — Luminarr Docs</title>
+  <meta name="description" content="Run any code when movie events happen. Forward to Home Assistant, post to Slack, trigger backups, update databases — using any language.">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Custom Scripts — Luminarr Docs">
+  <meta property="og:description" content="Run any code when movie events happen. Forward to Home Assistant, post to Slack, trigger backups, update databases — using any language.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://luminarr.video/docs/custom-scripts.html">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Custom Scripts — Luminarr Docs">
+  <meta name="twitter:description" content="Run any code when movie events happen. Forward to Home Assistant, post to Slack, trigger backups — using any language.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../index.html" class="nav-logo">luminarr<span>.</span></a>
+      <div class="nav-links">
+        <a href="../index.html">Home</a>
+        <a href="../index.html#features">Features</a>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-trigger">
+            Docs
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="nav-dropdown-menu">
+            <a href="architecture.html">
+              Architecture
+              <span class="dd-desc">How Luminarr is built</span>
+            </a>
+            <a href="security.html">
+              Security
+              <span class="dd-desc">Auth, network, and permissions</span>
+            </a>
+            <a href="custom-scripts.html">
+              Custom Scripts
+              <span class="dd-desc">Hook into movie events</span>
+            </a>
+          </div>
+        </div>
+        <a href="https://github.com/davidfic/luminarr" class="gh-link" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="doc-page">
+    <div class="container">
+
+      <!-- Page header -->
+      <h1 class="fade-in">Custom <span class="gradient">Scripts</span></h1>
+      <p class="page-desc fade-in">Run any code when movie events happen. Forward to Home Assistant, post to Slack, trigger backups, update databases — using any language.</p>
+
+      <!-- 1. Why Custom Scripts -->
+      <section class="content-section fade-in">
+        <div class="section-label">Overview</div>
+        <h2>Why Custom Scripts</h2>
+        <p>Luminarr ships with 9 built-in notification channels — Discord, Slack, email, webhooks, and more. But sometimes you need something specific: a Home Assistant scene, a custom database write, a Plex scan triggered only on certain imports. Custom scripts close that gap without waiting for a plugin.</p>
+        <p>Any executable file works. Bash, Python, Ruby, Node.js, a compiled binary — if your container can run it, Luminarr can call it.</p>
+
+        <div class="card-grid cols-3">
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon green" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Home automation
+            </h4>
+            <p>Trigger Hue scenes, ring a doorbell chime, announce imports on a speaker — anything Home Assistant or Matter can do.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+              External APIs
+            </h4>
+            <p>Post to services Luminarr doesn't natively support — custom Slack bots, ntfy topics, PagerDuty, or internal tooling.</p>
+          </div>
+          <div class="info-card">
+            <h4>
+              <svg class="card-icon accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              Data pipelines
+            </h4>
+            <p>Log events to a file, append rows to a spreadsheet, sync import history with an external database, or trigger backups.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Getting Started -->
+      <section class="content-section fade-in">
+        <div class="section-label">Setup</div>
+        <h2>Getting Started</h2>
+        <ol class="step-list">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <p><strong>Create your script</strong></p>
+              <p>Write a script in any language. Place it in <code>/config/scripts/</code> inside the container — this directory persists across restarts via the named volume.</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <p><strong>Make it executable</strong></p>
+              <div class="code-block">
+                <div class="code-block-header">
+                  <span class="code-block-filename">shell</span>
+                </div>
+                <div class="code-block-body">
+                  <pre>chmod +x /config/scripts/my-script.sh</pre>
+                </div>
+              </div>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <p><strong>Configure in Luminarr</strong></p>
+              <p>Go to <strong>Settings → Notifications → Add Notification → Command</strong>. Enter just the filename — not a full path.</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <p><strong>Choose events</strong></p>
+              <p>Select which events trigger the script: grabs, imports, download completion, health changes, or all of the above.</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">5</div>
+            <div class="step-content">
+              <p><strong>Test it</strong></p>
+              <p>Click <strong>Test</strong> to verify the script exists, is executable, and exits 0. stdout and stderr are captured and shown in the test result.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <!-- 3. How Scripts Are Called -->
+      <section class="content-section fade-in">
+        <div class="section-label">Execution model</div>
+        <h2>How Scripts Are Called</h2>
+        <p>When a subscribed event fires, Luminarr resolves the script path, spawns a subprocess, and waits for it to finish within the configured timeout.</p>
+
+        <div class="flow">
+          <div class="flow-step">Event fires</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">Resolve script path</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">Spawn subprocess</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">Pipe JSON to stdin</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">Set env vars</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">Capture stdout/stderr</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">Check exit code</div>
+        </div>
+
+        <p>Exit 0 is treated as success. Any non-zero exit code is logged as an error. The process is killed if it runs longer than the configured timeout (default: 30 seconds).</p>
+        <p>stdout and stderr are both captured and written to Luminarr's log at INFO level, so you can see your script's output without logging in to the container.</p>
+      </section>
+
+      <!-- 4. Environment Variables -->
+      <section class="content-section fade-in">
+        <div class="section-label">Reference</div>
+        <h2>Environment Variables</h2>
+        <p>These variables are set for every script invocation. They're useful for quick one-liners that don't need to parse JSON.</p>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Description</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>LUMINARR_EVENT_TYPE</code></td>
+              <td>Event type identifier</td>
+              <td><code>grab_started</code></td>
+            </tr>
+            <tr>
+              <td><code>LUMINARR_MOVIE_ID</code></td>
+              <td>Movie UUID — empty for non-movie events</td>
+              <td><code>a1b2c3d4-...</code></td>
+            </tr>
+            <tr>
+              <td><code>LUMINARR_MESSAGE</code></td>
+              <td>Human-readable event summary</td>
+              <td><code>Grabbed: Inception (2010)</code></td>
+            </tr>
+            <tr>
+              <td><code>LUMINARR_TIMESTAMP</code></td>
+              <td>RFC 3339 timestamp</td>
+              <td><code>2026-03-05T14:30:00Z</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>The script also inherits the full environment of the Luminarr process, so any variables you set in <code>docker-compose.yml</code> or at the OS level are visible too.</p>
+      </section>
+
+      <!-- 5. JSON Payload -->
+      <section class="content-section fade-in">
+        <div class="section-label">Reference</div>
+        <h2>JSON Payload</h2>
+        <p>Luminarr pipes a JSON object to the script's stdin. This is the same for every event type; only the <code>Data</code> field varies.</p>
+
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">stdin (JSON)</span>
+          </div>
+          <div class="code-block-body">
+            <pre><span class="syn-key">{</span>
+  <span class="syn-str">"Type"</span>:      <span class="syn-val">"import_done"</span>,                          <span class="syn-comment">// event type</span>
+  <span class="syn-str">"Timestamp"</span>: <span class="syn-val">"2026-03-05T14:30:00Z"</span>,                 <span class="syn-comment">// RFC 3339</span>
+  <span class="syn-str">"MovieID"</span>:   <span class="syn-val">"a1b2c3d4-e5f6-7890-abcd-ef1234567890"</span>, <span class="syn-comment">// UUID, may be empty</span>
+  <span class="syn-str">"Message"</span>:   <span class="syn-val">"Imported: Inception (2010) — 1080p BluRay x265"</span>,
+  <span class="syn-str">"Data"</span>: <span class="syn-key">{</span>
+    <span class="syn-str">"movie_title"</span>: <span class="syn-val">"Inception"</span>,
+    <span class="syn-str">"movie_year"</span>:  <span class="syn-num">2010</span>,
+    <span class="syn-str">"tmdb_id"</span>:     <span class="syn-num">27205</span>
+  <span class="syn-key">}</span>
+<span class="syn-key">}</span></pre>
+          </div>
+        </div>
+
+        <p>The <code>Data</code> object contains event-specific fields and may be <code>null</code> for events that aren't tied to a movie. Use stdin for the full payload when you need structured data; use env vars for simple scripts that only need the event type or message.</p>
+      </section>
+
+      <!-- 6. Event Types -->
+      <section class="content-section fade-in">
+        <div class="section-label">Reference</div>
+        <h2>Event Types</h2>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>When it fires</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>movie_added</code></td>
+              <td>A movie is added to a library</td>
+            </tr>
+            <tr>
+              <td><code>movie_deleted</code></td>
+              <td>A movie is removed from Luminarr</td>
+            </tr>
+            <tr>
+              <td><code>grab_started</code></td>
+              <td>A release is grabbed from an indexer</td>
+            </tr>
+            <tr>
+              <td><code>download_done</code></td>
+              <td>The download client reports the file is complete</td>
+            </tr>
+            <tr>
+              <td><code>import_done</code></td>
+              <td>File successfully imported into the library</td>
+            </tr>
+            <tr>
+              <td><code>import_failed</code></td>
+              <td>Import attempt failed (wrong quality, corrupt file, etc.)</td>
+            </tr>
+            <tr>
+              <td><code>health_issue</code></td>
+              <td>A health check detected a problem</td>
+            </tr>
+            <tr>
+              <td><code>health_ok</code></td>
+              <td>A previously failing health check recovered</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 7. Examples -->
+      <section class="content-section fade-in">
+        <div class="section-label">Examples</div>
+        <h2>Examples</h2>
+        <p>Copy any of these into <code>/config/scripts/</code>, make it executable, and wire it up in Settings. Each example is self-contained.</p>
+
+        <h3>Log events to a file</h3>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">log-events.sh</span>
+          </div>
+          <div class="code-block-body">
+            <pre><span class="syn-comment">#!/bin/sh</span>
+<span class="syn-fn">echo</span> <span class="syn-str">"$(date): $LUMINARR_EVENT_TYPE — $LUMINARR_MESSAGE"</span> >> /config/luminarr-events.log</pre>
+          </div>
+        </div>
+
+        <h3>Forward to Home Assistant</h3>
+        <p>Pipe the full JSON payload to a Home Assistant webhook. HA can then trigger automations based on the event type.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">forward-ha.sh</span>
+          </div>
+          <div class="code-block-body">
+            <pre><span class="syn-comment">#!/bin/sh</span>
+<span class="syn-fn">cat</span> | <span class="syn-fn">curl</span> -s -X POST -H <span class="syn-str">"Content-Type: application/json"</span> \
+  -d @- http://homeassistant.local:8123/api/webhook/luminarr</pre>
+          </div>
+        </div>
+
+        <h3>Desktop notification on import</h3>
+        <p>Use <code>notify-send</code> to show a desktop popup when a movie is imported. Works on any Linux host running a notification daemon.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">notify-import.py</span>
+          </div>
+          <div class="code-block-body">
+            <pre><span class="syn-comment">#!/usr/bin/env python3</span>
+<span class="syn-kw">import</span> json, sys, subprocess
+
+event = json.load(sys.stdin)
+<span class="syn-kw">if</span> event[<span class="syn-str">"Type"</span>] == <span class="syn-str">"import_done"</span>:
+    title = event.get(<span class="syn-str">"Data"</span>, {}).get(<span class="syn-str">"movie_title"</span>, <span class="syn-str">"Unknown"</span>)
+    subprocess.run([<span class="syn-str">"notify-send"</span>, <span class="syn-fn">f</span><span class="syn-str">"Luminarr: {title} imported"</span>])</pre>
+          </div>
+        </div>
+
+        <h3>Post to Slack with movie details</h3>
+        <p>Send a formatted Slack message using the Incoming Webhooks API. No dependencies beyond Python's standard library.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">slack-notify.py</span>
+          </div>
+          <div class="code-block-body">
+            <pre><span class="syn-comment">#!/usr/bin/env python3</span>
+<span class="syn-kw">import</span> json, sys, urllib.request
+
+event = json.load(sys.stdin)
+data  = event.get(<span class="syn-str">"Data"</span>, {})
+payload = {
+    <span class="syn-str">"text"</span>: (
+        <span class="syn-fn">f</span><span class="syn-str">":movie_camera: *{data.get('movie_title', 'Unknown')}*"</span>
+        <span class="syn-fn">f</span><span class="syn-str">" ({data.get('movie_year', '')}) — {event['Type']}"</span>
+    )
+}
+req = urllib.request.Request(
+    <span class="syn-str">"https://hooks.slack.com/services/YOUR/WEBHOOK/URL"</span>,
+    data=json.dumps(payload).encode(),
+    headers={<span class="syn-str">"Content-Type"</span>: <span class="syn-str">"application/json"</span>},
+)
+urllib.request.urlopen(req)</pre>
+          </div>
+        </div>
+
+        <h3>Trigger a Plex library scan after import</h3>
+        <p>Tell Plex to refresh a section whenever Luminarr imports a new file. Set <code>PLEX_TOKEN</code> in your environment or docker-compose.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">plex-scan.sh</span>
+          </div>
+          <div class="code-block-body">
+            <pre><span class="syn-comment">#!/bin/sh</span>
+<span class="syn-kw">if</span> [ <span class="syn-str">"$LUMINARR_EVENT_TYPE"</span> = <span class="syn-str">"import_done"</span> ]; <span class="syn-kw">then</span>
+  <span class="syn-fn">curl</span> -s -X POST \
+    <span class="syn-str">"http://plex.local:32400/library/sections/1/refresh?X-Plex-Token=$PLEX_TOKEN"</span>
+<span class="syn-kw">fi</span></pre>
+          </div>
+        </div>
+
+        <h3>Back up the database after import</h3>
+        <p>Create a timestamped copy of <code>luminarr.db</code> on every successful import. Rotate old backups separately with a cron job.</p>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">backup-on-import.sh</span>
+          </div>
+          <div class="code-block-body">
+            <pre><span class="syn-comment">#!/bin/sh</span>
+<span class="syn-kw">if</span> [ <span class="syn-str">"$LUMINARR_EVENT_TYPE"</span> = <span class="syn-str">"import_done"</span> ]; <span class="syn-kw">then</span>
+  <span class="syn-fn">cp</span> /config/luminarr.db \
+    <span class="syn-str">"/config/backups/luminarr-$(date +%Y%m%d-%H%M%S).db"</span>
+<span class="syn-kw">fi</span></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. Security -->
+      <section class="content-section fade-in">
+        <div class="section-label">Security</div>
+        <h2>Security</h2>
+        <p>Script execution is intentionally constrained. Luminarr only allows plain filenames with no path components — no <code>/</code>, no <code>..</code>. The resolved path is verified with <code>filepath.Join</code>, <code>filepath.Clean</code>, and <code>filepath.Rel</code> to ensure it stays inside <code>/config/scripts/</code>.</p>
+
+        <div class="callout warn">
+          <p><strong>Scripts run with the full permissions of the Luminarr process.</strong> Only add scripts you trust. If Luminarr runs as root inside a container, your scripts do too.</p>
+        </div>
+
+        <p>Additional constraints:</p>
+        <ul>
+          <li>Scripts must be plain filenames — slashes and <code>..</code> are rejected before path resolution</li>
+          <li>The script file must exist and be executable before it will run</li>
+          <li>Scripts inherit all environment variables from the Luminarr process</li>
+          <li>The process is killed after the configured timeout (default 30 seconds) — no runaway processes</li>
+        </ul>
+
+        <p>For the full security model including API key auth and network isolation, see the <a href="security.html" style="color: var(--accent);">Security page</a>.</p>
+      </section>
+
+      <!-- 9. Troubleshooting -->
+      <section class="content-section fade-in">
+        <div class="section-label">Troubleshooting</div>
+        <h2>Troubleshooting</h2>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Problem</th>
+              <th>Fix</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>"script not found"</td>
+              <td>Verify the file exists at <code>/config/scripts/&lt;name&gt;</code> inside the container. Use <code>docker exec</code> to check.</td>
+            </tr>
+            <tr>
+              <td>"script is not executable"</td>
+              <td>Run <code>chmod +x /config/scripts/&lt;name&gt;</code> inside the container.</td>
+            </tr>
+            <tr>
+              <td>Timeout errors</td>
+              <td>Increase the timeout in notification settings, or background long work with <code>&amp;</code> and exit immediately.</td>
+            </tr>
+            <tr>
+              <td>Can't see script output</td>
+              <td>stdout and stderr are logged at INFO level. Check Luminarr's logs: <code>docker logs luminarr</code>.</td>
+            </tr>
+            <tr>
+              <td>Script runs but nothing happens</td>
+              <td>Confirm the event type matches — log <code>$LUMINARR_EVENT_TYPE</code> to verify which event is firing.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 10. Configuration reference -->
+      <section class="content-section fade-in">
+        <div class="section-label">Reference</div>
+        <h2>Configuration</h2>
+        <p>Both settings are per-notification. You can have multiple script notifications with different scripts, different events, and different timeouts.</p>
+
+        <table class="doc-table">
+          <thead>
+            <tr>
+              <th>Setting</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>script_name</code></td>
+              <td><em>required</em></td>
+              <td>Filename only — no paths. Must exist in <code>/config/scripts/</code>.</td>
+            </tr>
+            <tr>
+              <td><code>timeout</code></td>
+              <td><code>30</code></td>
+              <td>Maximum execution time in seconds. Process is killed if exceeded.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-left">
+          MIT License &middot; luminarr
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/davidfic/luminarr" target="_blank" rel="noopener">GitHub</a>
+          <a href="architecture.html">Architecture</a>
+          <a href="security.html">Security</a>
+          <a href="custom-scripts.html">Custom Scripts</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.fade-in').forEach(function(el) { observer.observe(el); });
+  </script>
+
+</body>
+</html>
