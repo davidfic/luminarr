@@ -11,12 +11,12 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/davidfic/luminarr/internal/core/downloader"
-	"github.com/davidfic/luminarr/internal/core/indexer"
-	"github.com/davidfic/luminarr/internal/core/quality"
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/scheduler"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/downloader"
+	"github.com/luminarr/luminarr/internal/core/indexer"
+	"github.com/luminarr/luminarr/internal/core/quality"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/scheduler"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // RSSSync returns a Job that polls all enabled indexers for recent releases,

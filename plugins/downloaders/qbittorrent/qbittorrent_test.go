@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
-	"github.com/davidfic/luminarr/plugins/downloaders/qbittorrent"
+	"github.com/luminarr/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/plugins/downloaders/qbittorrent"
 )
 
 // newTestServer creates a mock qBittorrent API server.

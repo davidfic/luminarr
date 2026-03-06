@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
-	"github.com/davidfic/luminarr/plugins/downloaders/sabnzbd"
+	"github.com/luminarr/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/plugins/downloaders/sabnzbd"
 )
 
 func newTestServer(t *testing.T, handlers map[string]http.HandlerFunc) *httptest.Server {

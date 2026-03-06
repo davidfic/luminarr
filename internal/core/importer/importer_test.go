@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidfic/luminarr/internal/core/importer"
-	"github.com/davidfic/luminarr/internal/core/mediamanagement"
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/events"
-	"github.com/davidfic/luminarr/internal/logging"
+	"github.com/luminarr/luminarr/internal/core/importer"
+	"github.com/luminarr/luminarr/internal/core/mediamanagement"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/events"
+	"github.com/luminarr/luminarr/internal/logging"
 )
 
 // ── Fake DB querier ────────────────────────────────────────────────────────

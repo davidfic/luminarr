@@ -7,9 +7,9 @@ import (
 	"context"
 	"log/slog"
 
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/events"
-	"github.com/davidfic/luminarr/internal/registry"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/events"
+	"github.com/luminarr/luminarr/internal/registry"
 )
 
 // Dispatcher subscribes to the event bus and dispatches import_complete events

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/davidfic/luminarr/internal/core/library"
-	"github.com/davidfic/luminarr/internal/core/quality"
-	"github.com/davidfic/luminarr/internal/testutil"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/library"
+	"github.com/luminarr/luminarr/internal/core/quality"
+	"github.com/luminarr/luminarr/internal/testutil"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 func newServices(t *testing.T) (*library.Service, *quality.Service) {

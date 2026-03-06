@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 func TestValidateScriptName_Valid(t *testing.T) {

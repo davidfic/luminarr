@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/davidfic/luminarr/internal/core/movie"
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/scheduler"
+	"github.com/luminarr/luminarr/internal/core/movie"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/scheduler"
 )
 
 // RefreshMetadata returns a Job that re-fetches TMDB metadata for all

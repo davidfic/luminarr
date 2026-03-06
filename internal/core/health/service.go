@@ -10,9 +10,9 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/davidfic/luminarr/internal/core/downloader"
-	"github.com/davidfic/luminarr/internal/core/indexer"
-	"github.com/davidfic/luminarr/internal/core/library"
+	"github.com/luminarr/luminarr/internal/core/downloader"
+	"github.com/luminarr/luminarr/internal/core/indexer"
+	"github.com/luminarr/luminarr/internal/core/library"
 )
 
 // Status represents the health state of a single check or the overall system.

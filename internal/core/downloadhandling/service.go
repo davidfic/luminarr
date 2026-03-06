@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 )
 
 // Settings is the application-level view of the download_handling table.

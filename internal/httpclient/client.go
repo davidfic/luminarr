@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidfic/luminarr/internal/version"
+	"github.com/luminarr/luminarr/internal/version"
 )
 
 // Client wraps *http.Client with structured request logging and security

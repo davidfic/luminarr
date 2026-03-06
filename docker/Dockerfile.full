@@ -14,8 +14,8 @@ COPY . .
 
 # modernc/sqlite is pure Go — CGO_ENABLED=0 produces a fully static binary.
 RUN CGO_ENABLED=0 GOOS=linux go build \
-      -ldflags "-X github.com/davidfic/luminarr/internal/version.Version=${VERSION} \
-                -X github.com/davidfic/luminarr/internal/version.BuildTime=${BUILD_TIME} \
+      -ldflags "-X github.com/luminarr/luminarr/internal/version.Version=${VERSION} \
+                -X github.com/luminarr/luminarr/internal/version.BuildTime=${BUILD_TIME} \
                 -s -w" \
       -o /luminarr ./cmd/luminarr
 

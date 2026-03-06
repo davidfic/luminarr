@@ -6,7 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/core/movie"
+	"github.com/luminarr/luminarr/internal/core/movie"
 )
 
 type wantedInput struct {

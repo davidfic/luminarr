@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // IndexerFactory constructs an Indexer from a JSON settings blob.

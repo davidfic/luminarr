@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/davidfic/luminarr/internal/registry"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/registry"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 func init() {

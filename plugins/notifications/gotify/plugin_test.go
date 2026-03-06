@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 func TestNotify_Success(t *testing.T) {

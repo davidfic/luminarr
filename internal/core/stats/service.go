@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // CollectionStats is a summary of the movie library.

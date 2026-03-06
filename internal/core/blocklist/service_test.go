@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/davidfic/luminarr/internal/core/blocklist"
-	"github.com/davidfic/luminarr/internal/testutil"
+	"github.com/luminarr/luminarr/internal/core/blocklist"
+	"github.com/luminarr/luminarr/internal/testutil"
 )
 
 func newSvc(t *testing.T) (*blocklist.Service, string) {

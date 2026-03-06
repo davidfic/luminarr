@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/registry"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/registry"
 )
 
 // ErrNotFound is returned when a media server config does not exist.

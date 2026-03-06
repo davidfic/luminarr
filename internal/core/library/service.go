@@ -15,9 +15,9 @@ import (
 
 	"github.com/google/uuid"
 
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/events"
-	"github.com/davidfic/luminarr/internal/metadata/tmdb"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/events"
+	"github.com/luminarr/luminarr/internal/metadata/tmdb"
 )
 
 // tmdbSearcher is the minimal TMDB interface needed for background candidate matching.

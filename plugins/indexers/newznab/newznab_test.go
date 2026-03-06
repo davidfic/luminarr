@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // capsXML is a minimal but realistic Newznab capabilities response.

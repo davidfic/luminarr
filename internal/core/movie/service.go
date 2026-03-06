@@ -17,11 +17,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/davidfic/luminarr/internal/core/renamer"
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/events"
-	"github.com/davidfic/luminarr/internal/metadata/tmdb"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/renamer"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/events"
+	"github.com/luminarr/luminarr/internal/metadata/tmdb"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // Sentinel errors returned by Service methods.

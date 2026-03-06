@@ -6,7 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/scheduler"
+	"github.com/luminarr/luminarr/internal/scheduler"
 )
 
 // ── Request / response shapes ────────────────────────────────────────────────

@@ -9,11 +9,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/core/mediainfo"
-	"github.com/davidfic/luminarr/internal/core/mediamanagement"
-	"github.com/davidfic/luminarr/internal/core/movie"
-	"github.com/davidfic/luminarr/internal/core/renamer"
-	"github.com/davidfic/luminarr/internal/metadata/tmdb"
+	"github.com/luminarr/luminarr/internal/core/mediainfo"
+	"github.com/luminarr/luminarr/internal/core/mediamanagement"
+	"github.com/luminarr/luminarr/internal/core/movie"
+	"github.com/luminarr/luminarr/internal/core/renamer"
+	"github.com/luminarr/luminarr/internal/metadata/tmdb"
 )
 
 // ── Movie file shapes ─────────────────────────────────────────────────────────

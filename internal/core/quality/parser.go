@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // All regexps are compiled once at package init — never inside Parse.

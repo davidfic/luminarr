@@ -17,14 +17,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/davidfic/luminarr/internal/core/downloadhandling"
-	"github.com/davidfic/luminarr/internal/core/mediainfo"
-	"github.com/davidfic/luminarr/internal/core/mediamanagement"
-	"github.com/davidfic/luminarr/internal/core/quality"
-	"github.com/davidfic/luminarr/internal/core/renamer"
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/events"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/downloadhandling"
+	"github.com/luminarr/luminarr/internal/core/mediainfo"
+	"github.com/luminarr/luminarr/internal/core/mediamanagement"
+	"github.com/luminarr/luminarr/internal/core/quality"
+	"github.com/luminarr/luminarr/internal/core/renamer"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/events"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // videoExtensions is the set of file extensions considered video files.

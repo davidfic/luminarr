@@ -3,7 +3,7 @@ package mock
 import (
 	"context"
 
-	"github.com/davidfic/luminarr/internal/metadata/tmdb"
+	"github.com/luminarr/luminarr/internal/metadata/tmdb"
 )
 
 // CollectionProvider is a configurable mock of collection.MetadataProvider.

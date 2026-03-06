@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 )
 
 // Settings is the application-level view of the media_management table.

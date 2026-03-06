@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/davidfic/luminarr/internal/core/queue"
-	"github.com/davidfic/luminarr/internal/scheduler"
+	"github.com/luminarr/luminarr/internal/core/queue"
+	"github.com/luminarr/luminarr/internal/scheduler"
 )
 
 // QueuePoll returns a Job that polls all active downloads and updates their

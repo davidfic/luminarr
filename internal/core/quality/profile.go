@@ -3,7 +3,7 @@ package quality
 import (
 	"strings"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // Profile defines a quality policy for a monitored movie.

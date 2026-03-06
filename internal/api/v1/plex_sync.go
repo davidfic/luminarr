@@ -6,8 +6,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/plexsync"
-	plexpkg "github.com/davidfic/luminarr/plugins/mediaservers/plex"
+	"github.com/luminarr/luminarr/internal/plexsync"
+	plexpkg "github.com/luminarr/luminarr/plugins/mediaservers/plex"
 )
 
 // ── Request / response shapes ────────────────────────────────────────────────

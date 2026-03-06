@@ -7,8 +7,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/core/quality"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/quality"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // ── Request / response shapes ────────────────────────────────────────────────

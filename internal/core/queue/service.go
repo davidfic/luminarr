@@ -9,9 +9,9 @@ import (
 	"log/slog"
 	"time"
 
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/events"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/events"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // Item is the queue-service view of an active download, enriching the raw

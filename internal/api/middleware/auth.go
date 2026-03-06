@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/davidfic/luminarr/internal/config"
+	"github.com/luminarr/luminarr/internal/config"
 )
 
 const apiKeyHeader = "X-Api-Key" //nolint:gosec // G101 false positive: this is the header name, not a credential value

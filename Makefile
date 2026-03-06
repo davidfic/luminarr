@@ -1,6 +1,6 @@
 ## Luminarr Makefile
 
-MODULE  := github.com/davidfic/luminarr
+MODULE  := github.com/luminarr/luminarr
 BINARY  := luminarr
 BIN_DIR := ./bin
 CMD     := ./cmd/luminarr
@@ -11,7 +11,7 @@ LDFLAGS   := -ldflags "\
   -X $(MODULE)/internal/version.Version=$(VERSION) \
   -X $(MODULE)/internal/version.BuildTime=$(BUILD_TIME)"
 
-IMAGE ?= ghcr.io/davidfic/luminarr
+IMAGE ?= ghcr.io/luminarr/luminarr
 
 .PHONY: build run dev test test/unit test/integration test/cover test/race \
         lint check install-hooks generate migrate clean docker docker/push help
@@ -77,7 +77,7 @@ migrate:
 clean:
 	rm -rf $(BIN_DIR) tmp coverage.out coverage.html
 
-## docker: Build the Docker image locally (IMAGE=ghcr.io/davidfic/luminarr)
+## docker: Build the Docker image locally (IMAGE=ghcr.io/luminarr/luminarr)
 docker:
 	docker build \
 	  --build-arg VERSION=$(VERSION) \

@@ -3,7 +3,7 @@ package mock
 import (
 	"context"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // Notifier is a configurable mock of plugin.Notifier.

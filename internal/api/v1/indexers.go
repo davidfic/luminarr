@@ -9,8 +9,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/core/indexer"
-	"github.com/davidfic/luminarr/internal/registry"
+	"github.com/luminarr/luminarr/internal/core/indexer"
+	"github.com/luminarr/luminarr/internal/registry"
 )
 
 // ── Request / response shapes ────────────────────────────────────────────────

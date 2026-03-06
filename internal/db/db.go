@@ -6,7 +6,7 @@ import (
 
 	_ "modernc.org/sqlite" // registers "sqlite" driver
 
-	"github.com/davidfic/luminarr/internal/config"
+	"github.com/luminarr/luminarr/internal/config"
 )
 
 // DB wraps the underlying sql.DB and tracks which driver is in use.

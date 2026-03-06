@@ -6,7 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/core/health"
+	"github.com/luminarr/luminarr/internal/core/health"
 )
 
 type healthCheckBody struct {

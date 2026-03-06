@@ -3,7 +3,7 @@ package mediainfo_test
 import (
 	"testing"
 
-	"github.com/davidfic/luminarr/internal/core/mediainfo"
+	"github.com/luminarr/luminarr/internal/core/mediainfo"
 )
 
 // TestScanner_unavailable verifies that a scanner with no binary path is

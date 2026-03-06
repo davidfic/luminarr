@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/davidfic/luminarr/internal/config"
+	"github.com/luminarr/luminarr/internal/config"
 )
 
 func TestLoad_Defaults(t *testing.T) {

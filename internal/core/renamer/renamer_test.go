@@ -3,8 +3,8 @@ package renamer_test
 import (
 	"testing"
 
-	"github.com/davidfic/luminarr/internal/core/renamer"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/renamer"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 var testMovie = renamer.Movie{

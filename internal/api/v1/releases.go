@@ -10,12 +10,12 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/core/blocklist"
-	"github.com/davidfic/luminarr/internal/core/downloader"
-	"github.com/davidfic/luminarr/internal/core/indexer"
-	"github.com/davidfic/luminarr/internal/core/movie"
-	"github.com/davidfic/luminarr/internal/core/quality"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/blocklist"
+	"github.com/luminarr/luminarr/internal/core/downloader"
+	"github.com/luminarr/luminarr/internal/core/indexer"
+	"github.com/luminarr/luminarr/internal/core/movie"
+	"github.com/luminarr/luminarr/internal/core/quality"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // ── Request / response shapes ────────────────────────────────────────────────

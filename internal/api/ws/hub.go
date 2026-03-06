@@ -13,7 +13,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/davidfic/luminarr/internal/events"
+	"github.com/luminarr/luminarr/internal/events"
 )
 
 const (

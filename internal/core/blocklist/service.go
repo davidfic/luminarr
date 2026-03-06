@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 )
 
 // ErrAlreadyBlocklisted is returned when adding a GUID that is already on the blocklist.

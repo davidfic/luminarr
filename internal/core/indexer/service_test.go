@@ -7,12 +7,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/davidfic/luminarr/internal/core/indexer"
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/ratelimit"
-	"github.com/davidfic/luminarr/internal/registry"
-	"github.com/davidfic/luminarr/internal/testutil"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/indexer"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/ratelimit"
+	"github.com/luminarr/luminarr/internal/registry"
+	"github.com/luminarr/luminarr/internal/testutil"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // ── Mock indexer ──────────────────────────────────────────────────────────────

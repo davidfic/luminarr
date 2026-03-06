@@ -1,4 +1,4 @@
-module github.com/davidfic/luminarr
+module github.com/luminarr/luminarr
 
 go 1.25.0
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 )
 
 func TestNewTestDB_ReturnsWorkingQueries(t *testing.T) {

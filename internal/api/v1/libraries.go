@@ -14,8 +14,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/core/library"
-	"github.com/davidfic/luminarr/internal/core/movie"
+	"github.com/luminarr/luminarr/internal/core/library"
+	"github.com/luminarr/luminarr/internal/core/movie"
 )
 
 // ── Request / response shapes ────────────────────────────────────────────────

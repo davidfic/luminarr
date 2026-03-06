@@ -6,8 +6,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/davidfic/luminarr/internal/db"
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/db"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 )
 
 const testDSN = ":memory:?_foreign_keys=ON"

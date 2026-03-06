@@ -12,11 +12,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/config"
-	"github.com/davidfic/luminarr/internal/core/movie"
-	"github.com/davidfic/luminarr/internal/metadata/tmdb"
-	"github.com/davidfic/luminarr/internal/safedialer"
-	"github.com/davidfic/luminarr/internal/version"
+	"github.com/luminarr/luminarr/internal/config"
+	"github.com/luminarr/luminarr/internal/core/movie"
+	"github.com/luminarr/luminarr/internal/metadata/tmdb"
+	"github.com/luminarr/luminarr/internal/safedialer"
+	"github.com/luminarr/luminarr/internal/version"
 )
 
 // systemStatus holds the shape of the status response body.
@@ -184,7 +184,7 @@ func RegisterSystemRoutes(api huma.API, startTime time.Time, dbType, dbPath, con
 		}
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-			"https://api.github.com/repos/davidfic/luminarr/releases/latest", nil)
+			"https://api.github.com/repos/luminarr/luminarr/releases/latest", nil)
 		if err != nil {
 			return nil, huma.NewError(http.StatusBadGateway, "failed to build GitHub request", err)
 		}

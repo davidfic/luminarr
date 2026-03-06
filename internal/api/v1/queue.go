@@ -8,8 +8,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/core/blocklist"
-	"github.com/davidfic/luminarr/internal/core/queue"
+	"github.com/luminarr/luminarr/internal/core/blocklist"
+	"github.com/luminarr/luminarr/internal/core/queue"
 )
 
 // ── Request / response shapes ────────────────────────────────────────────────

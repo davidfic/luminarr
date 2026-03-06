@@ -3,8 +3,8 @@ package quality_test
 import (
 	"testing"
 
-	"github.com/davidfic/luminarr/internal/core/quality"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/quality"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 func makeProfile(cutoff plugin.Quality) *quality.Profile {

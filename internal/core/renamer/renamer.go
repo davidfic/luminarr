@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // DefaultFileFormat is used when a library has no naming_format set.

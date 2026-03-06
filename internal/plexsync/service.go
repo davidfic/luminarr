@@ -9,10 +9,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/davidfic/luminarr/internal/core/mediaserver"
-	"github.com/davidfic/luminarr/internal/core/movie"
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	plexpkg "github.com/davidfic/luminarr/plugins/mediaservers/plex"
+	"github.com/luminarr/luminarr/internal/core/mediaserver"
+	"github.com/luminarr/luminarr/internal/core/movie"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	plexpkg "github.com/luminarr/luminarr/plugins/mediaservers/plex"
 )
 
 // ── Result types ─────────────────────────────────────────────────────────────

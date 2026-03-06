@@ -7,7 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/davidfic/luminarr/internal/core/stats"
+	"github.com/luminarr/luminarr/internal/core/stats"
 )
 
 // ── Response bodies ───────────────────────────────────────────────────────────

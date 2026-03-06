@@ -13,12 +13,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/davidfic/luminarr/internal/core/quality"
-	dbsqlite "github.com/davidfic/luminarr/internal/db/generated/sqlite"
-	"github.com/davidfic/luminarr/internal/events"
-	"github.com/davidfic/luminarr/internal/ratelimit"
-	"github.com/davidfic/luminarr/internal/registry"
-	"github.com/davidfic/luminarr/pkg/plugin"
+	"github.com/luminarr/luminarr/internal/core/quality"
+	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
+	"github.com/luminarr/luminarr/internal/events"
+	"github.com/luminarr/luminarr/internal/ratelimit"
+	"github.com/luminarr/luminarr/internal/registry"
+	"github.com/luminarr/luminarr/pkg/plugin"
 )
 
 // ErrNotFound is returned when an indexer config does not exist.

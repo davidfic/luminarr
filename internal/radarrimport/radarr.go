@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidfic/luminarr/internal/safedialer"
+	"github.com/luminarr/luminarr/internal/safedialer"
 )
 
 // ── Radarr API types ──────────────────────────────────────────────────────────
