@@ -801,6 +801,15 @@
       pointer-events: auto !important;
       transform: translateX(-50%) translateY(0) !important;
     }
+    /* Invisible bridge to cover the gap between trigger and menu */
+    .nav-dropdown-menu::before {
+      content: '';
+      position: absolute;
+      top: -12px;
+      left: 0;
+      right: 0;
+      height: 12px;
+    }
     .nav-dropdown-menu a:hover {
       background: var(--bg-subtle);
       color: var(--text-primary) !important;
