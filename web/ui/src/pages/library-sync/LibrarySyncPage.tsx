@@ -132,12 +132,12 @@ function SelectStep({
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <label style={labelStyle}>Plex Server</label>
+        <label style={labelStyle}>Media Server</label>
         {loadingServers ? (
           <div className="skeleton" style={{ height: 36, borderRadius: 6 }} />
         ) : plexServers.length === 0 ? (
           <div style={{ fontSize: 12, color: "var(--color-text-muted)", padding: "8px 0" }}>
-            No Plex servers configured. Add one in Settings → Media Servers.
+            No media servers configured. Add one in Settings → Media Servers.
           </div>
         ) : (
           <select
@@ -253,7 +253,7 @@ function DiffView({
 
   const summaryItems = [
     { label: "In sync", value: preview.already_synced, color: "var(--color-success, #22c55e)" },
-    { label: "Plex only", value: preview.in_plex_only.length, color: "var(--color-accent)" },
+    { label: "Server only", value: preview.in_plex_only.length, color: "var(--color-accent)" },
     { label: "Luminarr only", value: preview.in_luminarr_only.length, color: "var(--color-warning, #eab308)" },
     { label: "Unmatched", value: preview.unmatched, color: "var(--color-text-muted)" },
   ];
@@ -290,7 +290,7 @@ function DiffView({
         }}
       >
         <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginRight: "auto" }}>
-          <span style={{ fontWeight: 600 }}>{preview.plex_total}</span> movies in Plex
+          <span style={{ fontWeight: 600 }}>{preview.plex_total}</span> movies on server
         </div>
         {summaryItems.map((s) => (
           <div key={s.label} style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
@@ -319,8 +319,8 @@ function DiffView({
             }}
           >
             {t === "plex"
-              ? `In Plex Only (${preview.in_plex_only.length})`
-              : `In Luminarr Only (${preview.in_luminarr_only.length})`}
+              ? `Server Only (${preview.in_plex_only.length})`
+              : `Luminarr Only (${preview.in_luminarr_only.length})`}
           </button>
         ))}
         <div style={{ flex: 1, borderBottom: "1px solid var(--color-border-default)" }} />
@@ -332,7 +332,7 @@ function DiffView({
           {preview.in_plex_only.length === 0 ? (
             <div style={{ fontSize: 13, color: "var(--color-text-muted)", textAlign: "center", padding: 24 }}>
               <CheckCircle size={24} style={{ marginBottom: 8, opacity: 0.5 }} />
-              <div>All Plex movies are already in Luminarr.</div>
+              <div>All server movies are already in Luminarr.</div>
             </div>
           ) : (
             <>
@@ -438,7 +438,7 @@ function DiffView({
           {preview.in_luminarr_only.length === 0 ? (
             <div style={{ fontSize: 13, color: "var(--color-text-muted)", textAlign: "center", padding: 24 }}>
               <CheckCircle size={24} style={{ marginBottom: 8, opacity: 0.5 }} />
-              <div>All Luminarr movies are in Plex.</div>
+              <div>All Luminarr movies are on the server.</div>
             </div>
           ) : (
             <div style={{ maxHeight: 400, overflowY: "auto" }}>
@@ -562,8 +562,8 @@ export default function LibrarySyncPage() {
       </div>
 
       <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 24, maxWidth: 600 }}>
-        Compare your Plex library with Luminarr to find movies that exist in one
-        but not the other. Import Plex-only movies into Luminarr with one click.
+        Compare your media server library with Luminarr to find movies that exist in one
+        but not the other. Import server-only movies into Luminarr with one click.
       </p>
 
       {step.kind === "select" && (

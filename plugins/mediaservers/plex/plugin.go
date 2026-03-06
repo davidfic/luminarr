@@ -253,7 +253,7 @@ func (s *Server) ListSections(ctx context.Context) ([]Section, error) {
 
 // ListMovies returns all movies in the given Plex library section.
 func (s *Server) ListMovies(ctx context.Context, sectionKey string) ([]Movie, error) {
-	reqURL := fmt.Sprintf("%s/library/sections/%s/all", s.cfg.URL, sectionKey)
+	reqURL := fmt.Sprintf("%s/library/sections/%s/all?includeGuids=1", s.cfg.URL, sectionKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("plex: building list-movies request: %w", err)
