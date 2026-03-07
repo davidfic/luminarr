@@ -77,6 +77,12 @@ export function useSystemConfig() {
   });
 }
 
+export function useRevealApiKey() {
+  return useMutation({
+    mutationFn: () => apiFetch<{ api_key: string }>("/system/config/apikey"),
+  });
+}
+
 export function useSaveConfig() {
   const qc = useQueryClient();
   return useMutation({

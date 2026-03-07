@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, Monitor, Moon, Sun } from "lucide-react";
-import { useSystemStatus, useSystemConfig, useSaveConfig } from "@/api/system";
+import { useSystemStatus, useSystemConfig, useSaveConfig, useRevealApiKey } from "@/api/system";
 import {
   THEME_PRESETS,
   getStoredMode,
@@ -547,18 +547,42 @@ function ConfigSection() {
 
 function APIKeySection() {
   const { data: sysConfig } = useSystemConfig();
-  const [show, setShow] = useState(false);
+  const reveal = useRevealApiKey();
+  const [fullKey, setFullKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const apiKey = sysConfig?.api_key ?? "";
-  const masked = apiKey ? apiKey.slice(0, 8) + "••••••••••••••••" : "";
+  const maskedKey = sysConfig?.api_key ?? "";
+  const show = fullKey !== null;
+
+  function handleToggle() {
+    if (fullKey) {
+      setFullKey(null);
+      return;
+    }
+    reveal.mutate(undefined, {
+      onSuccess: (data) => setFullKey(data.api_key),
+      onError: (err) => toast.error((err as Error).message),
+    });
+  }
 
   function handleCopy() {
-    if (!apiKey) return;
-    void navigator.clipboard.writeText(apiKey).then(() => {
-      setCopied(true);
-      toast.success("API key copied");
-      setTimeout(() => setCopied(false), 2000);
+    if (fullKey) {
+      void navigator.clipboard.writeText(fullKey).then(() => {
+        setCopied(true);
+        toast.success("API key copied");
+        setTimeout(() => setCopied(false), 2000);
+      });
+      return;
+    }
+    reveal.mutate(undefined, {
+      onSuccess: (data) => {
+        void navigator.clipboard.writeText(data.api_key).then(() => {
+          setCopied(true);
+          toast.success("API key copied");
+          setTimeout(() => setCopied(false), 2000);
+        });
+      },
+      onError: (err) => toast.error((err as Error).message),
     });
   }
 
@@ -585,10 +609,10 @@ function APIKeySection() {
             userSelect: show ? "all" : "none",
           }}
         >
-          {show ? apiKey : masked}
+          {show ? fullKey : maskedKey}
         </code>
         <button
-          onClick={() => setShow((s) => !s)}
+          onClick={handleToggle}
           style={{
             background: "none",
             border: "none",

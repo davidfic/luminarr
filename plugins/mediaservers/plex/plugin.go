@@ -49,8 +49,9 @@ func init() {
 
 // Config holds the user-supplied settings for a Plex media server.
 type Config struct {
-	URL   string `json:"url"`
-	Token string `json:"token"`
+	URL           string `json:"url"`
+	Token         string `json:"token"`
+	SkipTLSVerify bool   `json:"skip_tls_verify,omitempty"`
 }
 
 // Server is a Plex media server plugin instance.
@@ -62,9 +63,10 @@ type Server struct {
 // New creates a new Server from the given config.
 func New(cfg Config) *Server {
 	cfg.URL = strings.TrimRight(cfg.URL, "/")
-	// Plex commonly uses self-signed .plex.direct certificates on LAN.
 	transport := safedialer.LANTransport()
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // user-configured LAN server
+	if cfg.SkipTLSVerify {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // opt-in for self-signed certs
+	}
 	return &Server{
 		cfg:    cfg,
 		client: &http.Client{Timeout: 30 * time.Second, Transport: transport},

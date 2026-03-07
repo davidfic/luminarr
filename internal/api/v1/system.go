@@ -134,12 +134,39 @@ func RegisterSystemRoutes(api huma.API, startTime time.Time, dbType, dbPath, con
 				source = "custom"
 			}
 		}
+		maskedKey := apiKey
+		if len(apiKey) > 4 {
+			maskedKey = apiKey[:4] + "****"
+		}
 		return &systemConfigOutput{Body: &systemConfigBody{
 			TMDBKeyConfigured: hasProvider,
 			TMDBKeySource:     source,
-			APIKey:            apiKey,
+			APIKey:            maskedKey,
 			ConfigFile:        configFile,
 		}}, nil
+	})
+
+	// GET /api/v1/system/config/apikey — reveal the full API key on explicit request.
+	huma.Register(api, huma.Operation{
+		OperationID: "get-api-key",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/system/config/apikey",
+		Summary:     "Reveal the full API key",
+		Tags:        []string{"System"},
+	}, func(_ context.Context, _ *struct{}) (*struct {
+		Body struct {
+			APIKey string `json:"api_key"`
+		}
+	}, error) {
+		return &struct {
+			Body struct {
+				APIKey string `json:"api_key"`
+			}
+		}{
+			Body: struct {
+				APIKey string `json:"api_key"`
+			}{APIKey: apiKey},
+		}, nil
 	})
 
 	// PUT /api/v1/system/config — update config values and activate them immediately.

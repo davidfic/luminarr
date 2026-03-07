@@ -66,6 +66,7 @@ interface FormState {
   url: string;
   token: string;    // plex
   api_key: string;  // emby / jellyfin
+  skip_tls_verify: boolean;
 }
 
 const KINDS = [
@@ -75,7 +76,11 @@ const KINDS = [
 ];
 
 function defaultForm(): FormState {
-  return { name: "", kind: "plex", enabled: true, url: "", token: "", api_key: "" };
+  return { name: "", kind: "plex", enabled: true, url: "", token: "", api_key: "", skip_tls_verify: false };
+}
+
+function boolSetting(settings: Record<string, unknown>, key: string): boolean {
+  return settings[key] === true;
 }
 
 function formFromConfig(cfg: MediaServerConfig): FormState {
@@ -86,6 +91,7 @@ function formFromConfig(cfg: MediaServerConfig): FormState {
     url: strSetting(cfg.settings, "url"),
     token: strSetting(cfg.settings, "token"),
     api_key: strSetting(cfg.settings, "api_key"),
+    skip_tls_verify: boolSetting(cfg.settings, "skip_tls_verify"),
   };
 }
 
@@ -96,6 +102,7 @@ function formToRequest(f: FormState): MediaServerRequest {
   } else {
     if (f.api_key) settings.api_key = f.api_key;
   }
+  if (f.skip_tls_verify) settings.skip_tls_verify = true;
   return { name: f.name, kind: f.kind, enabled: f.enabled, settings };
 }
 
@@ -274,6 +281,18 @@ function MediaServerForm({
       ) : (
         <EmbyJellyfinFields form={form} setForm={setForm} />
       )}
+
+      {/* TLS verification */}
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text-primary)", cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          checked={form.skip_tls_verify}
+          onChange={(e) => setForm({ ...form, skip_tls_verify: e.target.checked })}
+          style={{ accentColor: "var(--color-accent)" }}
+        />
+        Skip TLS certificate verification
+        <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>(for self-signed certs)</span>
+      </label>
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
