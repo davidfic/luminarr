@@ -51,17 +51,12 @@ func writeAtomic(path string, data []byte, perm os.FileMode) error {
 func WriteConfigKey(configFile, key, value string) (writePath string, err error) {
 	path := configFile
 	if path == "" {
-		// Mirror Load()'s search order: prefer /config (Docker volume mount) when
-		// the directory exists, then fall back to $HOME/.config/luminarr/.
-		if _, err := os.Stat("/config"); err == nil {
+		if info, err := os.Stat("/config"); err == nil && info.IsDir() {
 			path = "/config/config.yaml"
+		} else if home, _ := os.UserHomeDir(); home != "" {
+			path = filepath.Join(home, ".config", "luminarr", "config.yaml")
 		} else {
-			home, _ := os.UserHomeDir()
-			if home != "" {
-				path = filepath.Join(home, ".config", "luminarr", "config.yaml")
-			} else {
-				path = "/config/config.yaml"
-			}
+			path = "/config/config.yaml"
 		}
 	}
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Copy, Monitor, Moon, Sun } from "lucide-react";
 import { useSystemStatus, useSystemConfig, useSaveConfig } from "@/api/system";
 import {
   THEME_PRESETS,
@@ -543,7 +543,96 @@ function ConfigSection() {
   );
 }
 
-// ── Section 5: Backup & Restore ───────────────────────────────────────────────
+// ── Section 5: API Key ────────────────────────────────────────────────────────
+
+function APIKeySection() {
+  const { data: sysConfig } = useSystemConfig();
+  const [show, setShow] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const apiKey = sysConfig?.api_key ?? "";
+  const masked = apiKey ? apiKey.slice(0, 8) + "••••••••••••••••" : "";
+
+  function handleCopy() {
+    if (!apiKey) return;
+    void navigator.clipboard.writeText(apiKey).then(() => {
+      setCopied(true);
+      toast.success("API key copied");
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div style={card}>
+      <p style={sectionHeader}>API Key</p>
+      <p style={{ fontSize: 12, color: "var(--color-text-muted)", margin: "0 0 12px" }}>
+        Use this key for external integrations (scripts, other *arr apps, Overseerr).
+      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <code
+          style={{
+            flex: 1,
+            background: "var(--color-bg-elevated)",
+            border: "1px solid var(--color-border-default)",
+            borderRadius: 6,
+            padding: "8px 12px",
+            fontSize: 13,
+            fontFamily: "var(--font-family-mono)",
+            color: "var(--color-text-primary)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            userSelect: show ? "all" : "none",
+          }}
+        >
+          {show ? apiKey : masked}
+        </code>
+        <button
+          onClick={() => setShow((s) => !s)}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 12,
+            color: "var(--color-text-muted)",
+            padding: "4px 6px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {show ? "hide" : "show"}
+        </button>
+        <button
+          onClick={handleCopy}
+          title="Copy to clipboard"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            background: "var(--color-bg-elevated)",
+            border: "1px solid var(--color-border-default)",
+            borderRadius: 6,
+            padding: "6px 12px",
+            fontSize: 12,
+            color: copied ? "var(--color-success)" : "var(--color-text-secondary)",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+          onMouseEnter={(e) => {
+            if (!copied) (e.currentTarget as HTMLButtonElement).style.background = "var(--color-bg-subtle)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--color-bg-elevated)";
+          }}
+        >
+          <Copy size={13} strokeWidth={2} />
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Section 6: Backup & Restore ───────────────────────────────────────────────
 
 function BackupSection() {
   const [downloading, setDownloading] = useState(false);
@@ -553,11 +642,7 @@ function BackupSection() {
   async function handleDownload() {
     setDownloading(true);
     try {
-      const key = ((window as unknown) as Record<string, unknown>)
-        .__LUMINARR_KEY__ as string;
-      const res = await fetch("/api/v1/system/backup", {
-        headers: { "X-Api-Key": key },
-      });
+      const res = await fetch("/api/v1/system/backup");
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -580,14 +665,9 @@ function BackupSection() {
     setRestoreMsg(null);
     setRestoreError(null);
     try {
-      const key = ((window as unknown) as Record<string, unknown>)
-        .__LUMINARR_KEY__ as string;
       const res = await fetch("/api/v1/system/restore", {
         method: "POST",
-        headers: {
-          "X-Api-Key": key,
-          "Content-Type": "application/octet-stream",
-        },
+        headers: { "Content-Type": "application/octet-stream" },
         body: file,
       });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
@@ -732,6 +812,7 @@ export default function AppSettingsPage() {
         <UIPreferencesSection />
         <AISection />
         <ConfigSection />
+        <APIKeySection />
         <BackupSection />
       </div>
     </div>

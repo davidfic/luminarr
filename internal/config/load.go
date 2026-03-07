@@ -101,11 +101,12 @@ func Load(cfgFile string) (*Config, error) {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
 
-	// Default SQLite path: prefer ~/.config/luminarr/luminarr.db; fall back to
-	// /config/luminarr.db (Docker volume) when $HOME is unavailable.
+	// Default SQLite path: if /config exists (Docker volume), use it;
+	// otherwise fall back to ~/.config/luminarr/ (bare-metal).
 	if cfg.Database.Driver == "sqlite" && cfg.Database.Path == "" {
-		home, _ := os.UserHomeDir()
-		if home != "" {
+		if info, err := os.Stat("/config"); err == nil && info.IsDir() {
+			cfg.Database.Path = "/config/luminarr.db"
+		} else if home, _ := os.UserHomeDir(); home != "" {
 			cfg.Database.Path = filepath.Join(home, ".config", "luminarr", "luminarr.db")
 		} else {
 			cfg.Database.Path = "/config/luminarr.db"

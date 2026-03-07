@@ -4,7 +4,6 @@ package ws
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -25,15 +24,13 @@ const (
 type Hub struct {
 	mu      sync.Mutex
 	clients map[chan []byte]struct{}
-	apiKey  []byte
 	logger  *slog.Logger
 }
 
-// NewHub creates a Hub that validates connections against apiKey.
-func NewHub(apiKey string, logger *slog.Logger) *Hub {
+// NewHub creates a Hub that broadcasts events to connected WebSocket clients.
+func NewHub(logger *slog.Logger) *Hub {
 	return &Hub{
 		clients: make(map[chan []byte]struct{}),
-		apiKey:  []byte(apiKey),
 		logger:  logger,
 	}
 }
@@ -59,20 +56,15 @@ func (h *Hub) HandleEvent(_ context.Context, e events.Event) {
 	}
 }
 
-// ServeHTTP upgrades the connection to WebSocket, validates the API key from
-// the ?key= query parameter, and starts pumping events to the client.
+// ServeHTTP upgrades the connection to WebSocket and starts pumping events
+// to the client. Auth is not enforced here — same-origin browser requests are
+// trusted, and the WebSocket is not exposed to external consumers.
 func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	key := r.URL.Query().Get("key")
-	if subtle.ConstantTimeCompare([]byte(key), h.apiKey) != 1 {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		// Skip the browser origin check. nhooyr.io/websocket rejects connections
 		// where the Origin header doesn't match the Host header, which breaks the
 		// Vite dev proxy (Origin: localhost:5173, Host: localhost:8282) and any
-		// reverse-proxy setup. Auth is enforced by the API key check above.
+		// reverse-proxy setup.
 		InsecureSkipVerify: true,
 		CompressionMode:    websocket.CompressionContextTakeover,
 	})

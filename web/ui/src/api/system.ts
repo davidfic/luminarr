@@ -66,6 +66,7 @@ export function useCheckForUpdates() {
 export interface SystemConfig {
   tmdb_key_configured: boolean;
   tmdb_key_source: "default" | "custom" | "none";
+  api_key: string;
   config_file?: string;
 }
 

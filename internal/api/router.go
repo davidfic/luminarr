@@ -92,20 +92,24 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	}
 
 	// Backup / restore — registered directly on chi (binary body/response, not JSON).
-	// Auth is enforced via the same constant-time key comparison as huma middleware.
+	// Auth accepts same-origin browser requests (Sec-Fetch-Site) or external API key.
 	if cfg.DB != nil && cfg.DBPath != "" {
 		authKey := []byte(cfg.Auth.Value())
-		withKeyAuth := func(next http.HandlerFunc) http.HandlerFunc {
+		withAuth := func(next http.HandlerFunc) http.HandlerFunc {
 			return func(w http.ResponseWriter, r *http.Request) {
-				if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Api-Key")), authKey) != 1 {
-					http.Error(w, `{"status":401,"title":"Unauthorized"}`, http.StatusUnauthorized)
+				if r.Header.Get("Sec-Fetch-Site") == "same-origin" {
+					next(w, r)
 					return
 				}
-				next(w, r)
+				if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Api-Key")), authKey) == 1 {
+					next(w, r)
+					return
+				}
+				http.Error(w, `{"status":401,"title":"Unauthorized"}`, http.StatusUnauthorized)
 			}
 		}
-		r.Get("/api/v1/system/backup", withKeyAuth(v1.BackupHandler(cfg.DB, cfg.DBPath, cfg.Logger)))
-		r.Post("/api/v1/system/restore", withKeyAuth(v1.RestoreHandler(cfg.DBPath, cfg.Logger)))
+		r.Get("/api/v1/system/backup", withAuth(v1.BackupHandler(cfg.DB, cfg.DBPath, cfg.Logger)))
+		r.Post("/api/v1/system/restore", withAuth(v1.RestoreHandler(cfg.DBPath, cfg.Logger)))
 	}
 
 	// Unauthenticated health check for load balancers / container probes.
@@ -141,19 +145,23 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	}
 	oapi.Security = []map[string][]string{{"ApiKeyAuth": {}}}
 
-	// Auth is enforced via huma middleware, which runs only for registered
-	// operations — huma's own docs/spec routes are served directly on the chi
-	// router and are therefore unaffected.
+	// Auth middleware: same-origin browser requests (Sec-Fetch-Site header) are
+	// trusted without a key (Radarr model). External consumers must provide a
+	// valid X-Api-Key header.
 	apiKeyBytes := []byte(cfg.Auth.Value())
 	humaAPI.UseMiddleware(func(ctx huma.Context, next func(huma.Context)) {
-		if subtle.ConstantTimeCompare([]byte(ctx.Header("X-Api-Key")), apiKeyBytes) != 1 {
-			_ = huma.WriteErr(humaAPI, ctx, http.StatusUnauthorized, "A valid X-Api-Key header is required.")
+		if ctx.Header("Sec-Fetch-Site") == "same-origin" {
+			next(ctx)
 			return
 		}
-		next(ctx)
+		if subtle.ConstantTimeCompare([]byte(ctx.Header("X-Api-Key")), apiKeyBytes) == 1 {
+			next(ctx)
+			return
+		}
+		_ = huma.WriteErr(humaAPI, ctx, http.StatusUnauthorized, "A valid X-Api-Key header is required.")
 	})
 
-	v1.RegisterSystemRoutes(humaAPI, cfg.StartTime, cfg.DBType, cfg.DBPath, cfg.ConfigFile, cfg.AIEnabled, cfg.TMDBKeyIsDefault, cfg.MovieService, cfg.Logger)
+	v1.RegisterSystemRoutes(humaAPI, cfg.StartTime, cfg.DBType, cfg.DBPath, cfg.ConfigFile, cfg.AIEnabled, cfg.TMDBKeyIsDefault, cfg.Auth.Value(), cfg.MovieService, cfg.Logger)
 
 	if cfg.QualityService != nil {
 		v1.RegisterQualityProfileRoutes(humaAPI, cfg.QualityService)
@@ -242,7 +250,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	// exist (assets, favicon, etc.) and falls back to index.html for all other
 	// paths so React Router can handle client-side navigation. Must come after
 	// all API routes so /api/* and /health take precedence.
-	r.Handle("/*", web.ServeStatic(cfg.Auth.Value()))
+	r.Handle("/*", web.ServeStatic())
 
 	return r
 }

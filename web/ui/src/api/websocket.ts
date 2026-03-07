@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getApiKey } from "@/hooks/useApiKey";
 
 interface ServerEvent {
   type: string;
@@ -12,8 +11,7 @@ interface ServerEvent {
 
 function buildWsUrl(): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const key = getApiKey();
-  return `${proto}//${window.location.host}/api/v1/ws?key=${encodeURIComponent(key)}`;
+  return `${proto}//${window.location.host}/api/v1/ws`;
 }
 
 // useWebSocket connects to the server event stream and keeps the React Query

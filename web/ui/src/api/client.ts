@@ -1,5 +1,3 @@
-import { getApiKey } from "@/hooks/useApiKey";
-
 export class APIError extends Error {
   status: number;
   detail: string | undefined;
@@ -20,7 +18,6 @@ export async function apiFetch<T>(
     ...init,
     headers: {
       "Content-Type": "application/json",
-      "X-Api-Key": getApiKey(),
       ...(init?.headers ?? {}),
     },
   });
