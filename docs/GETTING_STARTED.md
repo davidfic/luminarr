@@ -12,7 +12,7 @@ This guide walks you through installing Luminarr, configuring it, and getting yo
 docker run -d \
   --name luminarr \
   -p 8282:8282 \
-  -v luminarr-data:/config \
+  -v /path/to/config:/config \
   -v /path/to/movies:/movies \
   ghcr.io/luminarr/luminarr:latest
 ```
@@ -30,12 +30,9 @@ services:
     ports:
       - "8282:8282"
     volumes:
-      - luminarr-data:/config
+      - /path/to/config:/config
       - /path/to/movies:/movies
     restart: unless-stopped
-
-volumes:
-  luminarr-data:
 ```
 
 ```bash
@@ -240,7 +237,7 @@ services:
     ports:
       - "8282:8282"
     volumes:
-      - luminarr-data:/config
+      - /path/to/config:/config
       - /path/to/movies:/movies
     restart: unless-stopped
 ```

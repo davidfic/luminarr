@@ -93,7 +93,7 @@ Radarr has optional analytics. Luminarr has no analytics at all — optional or 
 docker run -d \
   --name luminarr \
   -p 8282:8282 \
-  -v luminarr-data:/config \
+  -v /path/to/config:/config \
   -v /path/to/movies:/movies \
   ghcr.io/luminarr/luminarr:latest
 ```
@@ -113,12 +113,9 @@ services:
     ports:
       - "8282:8282"
     volumes:
-      - luminarr-data:/config
+      - /path/to/config:/config
       - /path/to/movies:/movies
     restart: unless-stopped
-
-volumes:
-  luminarr-data:
 ```
 
 ### Build from source

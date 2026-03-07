@@ -9,7 +9,4 @@ services:
     ports:
       - "8282:8282"
     volumes:
-      - luminarr-config:/config
-
-volumes:
-  luminarr-config:
+      - ${HOME}/.config/luminarr:/config
