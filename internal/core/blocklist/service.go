@@ -5,11 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/luminarr/luminarr/internal/core/dbutil"
 	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 )
 
@@ -60,7 +60,7 @@ func (s *Service) Add(ctx context.Context, movieID, releaseGUID, releaseTitle, i
 	})
 	if err != nil {
 		// SQLite unique constraint violation contains "UNIQUE constraint failed"
-		if isUniqueViolation(err) {
+		if dbutil.IsUniqueViolation(err) {
 			return ErrAlreadyBlocklisted
 		}
 		return fmt.Errorf("inserting blocklist entry: %w", err)
@@ -146,9 +146,4 @@ func (s *Service) Clear(ctx context.Context) error {
 		return fmt.Errorf("clearing blocklist: %w", err)
 	}
 	return nil
-}
-
-// isUniqueViolation reports whether err is a SQLite unique constraint violation.
-func isUniqueViolation(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }

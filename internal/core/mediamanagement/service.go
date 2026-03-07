@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/luminarr/luminarr/internal/core/dbutil"
 	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 )
 
@@ -43,13 +44,13 @@ func (s *Service) Get(ctx context.Context) (Settings, error) {
 // Update persists new settings and returns the saved values.
 func (s *Service) Update(ctx context.Context, settings Settings) (Settings, error) {
 	row, err := s.q.UpdateMediaManagement(ctx, dbsqlite.UpdateMediaManagementParams{
-		RenameMovies:           boolToInt(settings.RenameMovies),
+		RenameMovies:           dbutil.BoolToInt(settings.RenameMovies),
 		StandardMovieFormat:    settings.StandardMovieFormat,
 		MovieFolderFormat:      settings.MovieFolderFormat,
 		ColonReplacement:       settings.ColonReplacement,
-		ImportExtraFiles:       boolToInt(settings.ImportExtraFiles),
+		ImportExtraFiles:       dbutil.BoolToInt(settings.ImportExtraFiles),
 		ExtraFileExtensions:    strings.Join(settings.ExtraFileExtensions, ","),
-		UnmonitorDeletedMovies: boolToInt(settings.UnmonitorDeletedMovies),
+		UnmonitorDeletedMovies: dbutil.BoolToInt(settings.UnmonitorDeletedMovies),
 	})
 	if err != nil {
 		return Settings{}, fmt.Errorf("media_management: update: %w", err)
@@ -82,11 +83,4 @@ func parseExtensions(raw string) []string {
 		}
 	}
 	return out
-}
-
-func boolToInt(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }

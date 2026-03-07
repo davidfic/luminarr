@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/luminarr/luminarr/internal/core/dbutil"
 	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 	"github.com/luminarr/luminarr/internal/events"
 	"github.com/luminarr/luminarr/internal/registry"
@@ -80,7 +81,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Config, error)
 		ID:        uuid.New().String(),
 		Name:      req.Name,
 		Kind:      req.Kind,
-		Enabled:   boolToInt(req.Enabled),
+		Enabled:   dbutil.BoolToInt(req.Enabled),
 		Priority:  int64(priority),
 		Settings:  string(settings),
 		CreatedAt: now.Format(time.RFC3339),
@@ -134,7 +135,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Con
 
 	// Merge: keys absent from req.Settings are preserved from existing settings.
 	// This ensures secret fields (passwords) are not erased when omitted by the client.
-	settings := mergeSettings(json.RawMessage(existing.Settings), req.Settings)
+	settings := dbutil.MergeSettings(json.RawMessage(existing.Settings), req.Settings)
 	if len(settings) == 0 {
 		settings = json.RawMessage("{}")
 	}
@@ -148,7 +149,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Con
 		ID:        id,
 		Name:      req.Name,
 		Kind:      req.Kind,
-		Enabled:   boolToInt(req.Enabled),
+		Enabled:   dbutil.BoolToInt(req.Enabled),
 		Priority:  int64(priority),
 		Settings:  string(settings),
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
@@ -255,36 +256,4 @@ func rowToConfig(row dbsqlite.DownloadClientConfig) (Config, error) {
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,
 	}, nil
-}
-
-func boolToInt(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
-}
-
-// mergeSettings returns newSettings with any keys absent from newSettings
-// filled in from existingSettings. Keys present in newSettings always win.
-func mergeSettings(existing, newSettings json.RawMessage) json.RawMessage {
-	if len(newSettings) == 0 {
-		return existing
-	}
-	var existingMap, newMap map[string]json.RawMessage
-	if json.Unmarshal(existing, &existingMap) != nil {
-		return newSettings
-	}
-	if json.Unmarshal(newSettings, &newMap) != nil {
-		return newSettings
-	}
-	for k, v := range existingMap {
-		if _, ok := newMap[k]; !ok {
-			newMap[k] = v
-		}
-	}
-	merged, err := json.Marshal(newMap)
-	if err != nil {
-		return newSettings
-	}
-	return merged
 }

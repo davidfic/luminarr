@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/luminarr/luminarr/internal/core/dbutil"
 	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 	"github.com/luminarr/luminarr/internal/registry"
 )
@@ -66,7 +67,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Config, error)
 		ID:        uuid.New().String(),
 		Name:      req.Name,
 		Kind:      req.Kind,
-		Enabled:   boolToInt(req.Enabled),
+		Enabled:   dbutil.BoolToInt(req.Enabled),
 		Settings:  string(settings),
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -121,7 +122,7 @@ func (s *Service) Update(ctx context.Context, id string, req UpdateRequest) (Con
 		ID:        id,
 		Name:      req.Name,
 		Kind:      req.Kind,
-		Enabled:   boolToInt(req.Enabled),
+		Enabled:   dbutil.BoolToInt(req.Enabled),
 		Settings:  string(settings),
 		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 	})
@@ -173,11 +174,4 @@ func rowToConfig(row dbsqlite.MediaServerConfig) Config {
 		CreatedAt: createdAt,
 		UpdatedAt: updatedAt,
 	}
-}
-
-func boolToInt(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }

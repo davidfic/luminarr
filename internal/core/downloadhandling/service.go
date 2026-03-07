@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/luminarr/luminarr/internal/core/dbutil"
 	dbsqlite "github.com/luminarr/luminarr/internal/db/generated/sqlite"
 )
 
@@ -51,10 +52,10 @@ func (s *Service) Get(ctx context.Context) (Settings, error) {
 // Update persists new settings and returns the saved values.
 func (s *Service) Update(ctx context.Context, settings Settings) (Settings, error) {
 	row, err := s.q.UpdateDownloadHandling(ctx, dbsqlite.UpdateDownloadHandlingParams{
-		EnableCompleted:             boolToInt(settings.EnableCompleted),
+		EnableCompleted:             dbutil.BoolToInt(settings.EnableCompleted),
 		CheckIntervalMinutes:        settings.CheckIntervalMinutes,
-		RedownloadFailed:            boolToInt(settings.RedownloadFailed),
-		RedownloadFailedInteractive: boolToInt(settings.RedownloadFailedInteractive),
+		RedownloadFailed:            dbutil.BoolToInt(settings.RedownloadFailed),
+		RedownloadFailedInteractive: dbutil.BoolToInt(settings.RedownloadFailedInteractive),
 	})
 	if err != nil {
 		return Settings{}, fmt.Errorf("download_handling: update: %w", err)
@@ -128,11 +129,4 @@ func mappingFromRow(row dbsqlite.RemotePathMapping) RemotePathMapping {
 		RemotePath: row.RemotePath,
 		LocalPath:  row.LocalPath,
 	}
-}
-
-func boolToInt(b bool) int64 {
-	if b {
-		return 1
-	}
-	return 0
 }
