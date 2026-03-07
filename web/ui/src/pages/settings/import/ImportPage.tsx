@@ -4,25 +4,25 @@ import { Eye, EyeOff, ArrowLeft, CheckCircle, XCircle, AlertCircle, Loader2, Ref
 import { useRadarrPreview, useRadarrImport } from "@/api/import";
 import type { RadarrPreviewResult, RadarrImportOptions, RadarrImportResult, CategoryResult } from "@/types";
 
-// ── localStorage helpers ───────────────────────────────────────────────────────
+// ── sessionStorage helpers (credentials cleared on tab close) ─────────────────
 
 const LS_URL = "luminarr.radarr.url";
 const LS_KEY = "luminarr.radarr.api_key";
 
 function loadSaved(): { url: string; apiKey: string } | null {
-  const url = localStorage.getItem(LS_URL);
-  const key = localStorage.getItem(LS_KEY);
+  const url = sessionStorage.getItem(LS_URL);
+  const key = sessionStorage.getItem(LS_KEY);
   return url && key ? { url, apiKey: key } : null;
 }
 
 function saveCreds(url: string, apiKey: string) {
-  localStorage.setItem(LS_URL, url);
-  localStorage.setItem(LS_KEY, apiKey);
+  sessionStorage.setItem(LS_URL, url);
+  sessionStorage.setItem(LS_KEY, apiKey);
 }
 
 function clearCreds() {
-  localStorage.removeItem(LS_URL);
-  localStorage.removeItem(LS_KEY);
+  sessionStorage.removeItem(LS_URL);
+  sessionStorage.removeItem(LS_KEY);
 }
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -745,7 +745,7 @@ export default function ImportPage() {
   const [apiKey, setApiKey] = useState("");
   const [preview, setPreview] = useState<RadarrPreviewResult | null>(null);
   const [importResult, setImportResult] = useState<RadarrImportResult | null>(null);
-  // Saved credentials from localStorage — loaded once on mount.
+  // Saved credentials from sessionStorage — loaded once on mount.
   const [saved, setSaved] = useState(loadSaved);
   // When true, show the manual form even if saved credentials exist.
   const [showForm, setShowForm] = useState(false);

@@ -364,7 +364,7 @@ function UpdateModal({ data, onClose }: { data: UpdateCheck; onClose: () => void
 
         {/* Footer actions */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          {data.release_url && (
+          {data.release_url && /^https?:\/\//i.test(data.release_url) && (
             <a
               href={data.release_url}
               target="_blank"
